@@ -1,0 +1,61 @@
+# Book Vault: full stack with one command.
+#
+#   docker compose up --build      # app at http://localhost:8080
+#   docker compose down            # stop (data is kept in the named volume)
+#   docker compose down -v         # stop and delete the data
+#
+# The browser only talks to the frontend container. nginx serves the React app
+# and proxies /api/* to the backend over the internal network, so the API is
+# same-origin (no CORS) and the backend port isn't published.
+
+name: book-vault
+
+services:
+  backend:
+    build: ./book-vault
+    # --root-path tells FastAPI it lives under /api, so its docs work through the
+    # proxy (http://localhost:8080/api/docs). nginx strips the prefix.
+    command:
+      - uvicorn
+      - app.main:app
+      - --host=0.0.0.0
+      - --port=8000
+      - --root-path=/api
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+    environment:
+      DATABASE_URL: sqlite:////app/data/books.db
+      # Same-origin through nginx, so no browser origin needs CORS.
+      CORS_ORIGINS: ""
+    volumes:
+      - book-vault-data:/app/data
+    expose:
+      - "8000"
+    healthcheck:
+      # python:3.11-slim has no curl; /health also checks the database.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status != 200)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: /api
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  # SQLite lives here and survives `docker compose down` / `up`.
+  book-vault-data:

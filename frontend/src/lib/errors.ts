@@ -18,15 +18,25 @@ export interface DescribedError {
   retryable: boolean;
 }
 
+/** "at http://…" for an absolute API URL; nothing for a same-origin path like "/api". */
+const apiWhere = /^https?:\/\//.test(API_URL) ? ` at ${API_URL}` : '';
+
+const UNREACHABLE: DescribedError = {
+  kind: 'network',
+  title: "Can't reach the server",
+  message: `The Book Vault API${apiWhere} isn't responding. Check that the backend is running, then try again.`,
+  retryable: true,
+};
+
+/**
+ * 502 Bad Gateway / 504 Gateway Timeout come from a reverse proxy (nginx in Docker)
+ * that couldn't reach the backend, which for the user is the same as being offline.
+ */
+const GATEWAY_STATUSES = new Set([502, 504]);
+
 export function describeError(error: unknown): DescribedError {
-  if (error instanceof NetworkError) {
-    return {
-      kind: 'network',
-      title: "Can't reach the server",
-      message: `The Book Vault API at ${API_URL} isn't responding. Check that the backend is running, then try again.`,
-      retryable: true,
-    };
-  }
+  if (error instanceof NetworkError) return UNREACHABLE;
+  if (error instanceof ApiError && GATEWAY_STATUSES.has(error.status)) return UNREACHABLE;
   if (error instanceof ValidationError) {
     return {
       kind: 'validation',

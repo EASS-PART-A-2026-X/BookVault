@@ -85,6 +85,20 @@ describe('describeError', () => {
     });
   });
 
+  it.each([502, 504])('treats a proxy %s (backend down behind nginx) as unreachable', (status) => {
+    expect(
+      describeError(new ApiError(status, 'Backend unavailable', 'Backend unavailable')),
+    ).toMatchObject({
+      kind: 'network',
+      title: "Can't reach the server",
+      retryable: true,
+    });
+  });
+
+  it('names an absolute API URL in the network message', () => {
+    expect(describeError(new NetworkError()).message).toContain('at http://localhost:8000');
+  });
+
   it('detects not-found errors', () => {
     expect(isNotFound(new ApiError(404, 'x', 'x'))).toBe(true);
     expect(isNotFound(new ApiError(500, 'x', 'x'))).toBe(false);

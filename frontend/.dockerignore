@@ -1,0 +1,21 @@
+# Rebuilt inside the image
+node_modules/
+dist/
+
+# Test output and local data
+coverage/
+playwright-report/
+test-results/
+e2e/.tmp/
+
+# Local env files (VITE_API_URL is a build arg)
+.env
+.env.*
+!.env.example
+
+# Not needed to build
+Dockerfile
+.dockerignore
+.git/
+.DS_Store
+*.log

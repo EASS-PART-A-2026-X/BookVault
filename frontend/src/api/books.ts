@@ -53,7 +53,7 @@ export class ValidationError extends ApiError {
 /** The request never got an HTTP response: server down, DNS, CORS, offline... */
 export class NetworkError extends Error {
   constructor(cause?: unknown) {
-    super(`Can't reach the Book Vault API at ${API_URL}.`, { cause });
+    super(`Can't reach the Book Vault API (${API_URL}).`, { cause });
     this.name = 'NetworkError';
   }
 }
