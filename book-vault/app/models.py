@@ -13,6 +13,36 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+class User(Base):
+    """An account. Usernames are stored lower case, so they're unique ignoring case."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(50))
+    bio: Mapped[str] = mapped_column(String(280), default="")
+    # Private by default: others must request to follow before seeing books.
+    is_public: Mapped[bool] = mapped_column(default=False)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class AuthSession(Base):
+    """A login. Only a SHA-256 hash of the cookie token is stored, so a leaked
+    database can't be used to log in."""
+
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    expires_at: Mapped[datetime]
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
 # Many-to-many link between books and tropes. Rows are removed with either side.
 book_tropes = Table(
     "book_tropes",
@@ -36,6 +66,11 @@ class Book(Base):
     __tablename__ = "books"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # Nullable only for books created before accounts existed; they are adopted by the
+    # first account that registers (see app/auth.py). Every query filters by owner.
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, default=None
+    )
     title: Mapped[str] = mapped_column(String(255))
     author: Mapped[str] = mapped_column(String(255))
     # values_callable stores the enum *values* ("Sci-Fi") rather than names ("SCI_FI").

@@ -51,7 +51,8 @@ export default defineConfig({
       name: 'frontend',
       command: `npm run dev -- --port ${WEB_PORT} --strictPort`,
       url: WEB_URL,
-      env: { VITE_API_URL: API_URL },
+      // Same-origin like Docker: the browser calls /api and Vite forwards it to :8001.
+      env: { VITE_API_URL: '/api', API_PROXY_TARGET: API_URL },
       reuseExistingServer: false,
       timeout: 60_000,
       stdout: 'ignore',

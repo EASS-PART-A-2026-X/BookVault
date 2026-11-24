@@ -11,8 +11,11 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.auth import UNAUTHORIZED_RESPONSE, current_user, users_router
+from app.auth import router as auth_router
 from app.database import Base, engine, get_db
-from app.models import Book, Trope, book_tropes, utcnow
+from app.migrations import migrate
+from app.models import Book, Trope, User, book_tropes, utcnow
 from app.schemas import (
     TROPE_MAX_LENGTH,
     BookCreate,
@@ -34,6 +37,7 @@ DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 # Declared on every /books/{book_id} route so the 404 appears in the OpenAPI docs.
 NOT_FOUND_RESPONSE: dict[int | str, dict[str, Any]] = {
     status.HTTP_404_NOT_FOUND: {"model": ErrorResponse, "description": BOOK_NOT_FOUND},
+    **UNAUTHORIZED_RESPONSE,
 }
 
 
@@ -41,6 +45,8 @@ NOT_FOUND_RESPONSE: dict[int | str, dict[str, Any]] = {
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Create tables on startup (no-op if they already exist).
     Base.metadata.create_all(bind=engine)
+    # Bring databases created by older versions up to date (e.g. books.owner_id).
+    migrate(engine)
     yield
 
 
@@ -65,15 +71,21 @@ def parse_cors_origins(value: str | None) -> list[str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=parse_cors_origins(os.getenv("CORS_ORIGINS")),
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type"],
+    # The session cookie must be sent on cross-origin calls from an allowed origin.
+    allow_credentials=True,
 )
 
+app.include_router(auth_router)
+app.include_router(users_router)
 
-def get_book_or_404(db: Session, book_id: int) -> Book:
-    """Fetch a book by id, raising 404 if it doesn't exist."""
+
+def get_book_or_404(db: Session, book_id: int, user: User) -> Book:
+    """Fetch one of the user's books, raising 404 if it doesn't exist or isn't theirs.
+    Someone else's book is a 404 (not 403), so ids don't reveal other users' books."""
     book = db.get(Book, book_id)
-    if book is None:
+    if book is None or book.owner_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=BOOK_NOT_FOUND)
     return book
 
@@ -110,9 +122,18 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
     return HealthResponse(status="ok")
 
 
-@app.post("/books", response_model=BookRead, status_code=status.HTTP_201_CREATED)
-def create_book(payload: BookCreate, db: Session = Depends(get_db)) -> Book:
-    book = Book(**payload.model_dump(exclude={"tropes"}))
+@app.post(
+    "/books",
+    response_model=BookRead,
+    status_code=status.HTTP_201_CREATED,
+    responses=UNAUTHORIZED_RESPONSE,
+)
+def create_book(
+    payload: BookCreate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> Book:
+    book = Book(**payload.model_dump(exclude={"tropes"}), owner_id=user.id)
     book.tropes = get_or_create_tropes(db, payload.tropes)
     db.add(book)
     db.commit()
@@ -120,7 +141,7 @@ def create_book(payload: BookCreate, db: Session = Depends(get_db)) -> Book:
     return book
 
 
-@app.get("/books", response_model=list[BookRead])
+@app.get("/books", response_model=list[BookRead], responses=UNAUTHORIZED_RESPONSE)
 def list_books(
     genre: Genre | None = None,
     is_read: bool | None = None,
@@ -131,10 +152,11 @@ def list_books(
         max_length=TROPE_MAX_LENGTH,
         description="Only books with this trope (case-insensitive).",
     ),
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ) -> list[Book]:
-    """List books, optionally filtered. Filters combine with AND."""
-    query = select(Book).order_by(Book.id)
+    """List your books, optionally filtered. Filters combine with AND."""
+    query = select(Book).where(Book.owner_id == user.id).order_by(Book.id)
     if genre is not None:
         query = query.where(Book.genre == genre)
     if is_read is not None:
@@ -147,12 +169,16 @@ def list_books(
     return list(db.scalars(query))
 
 
-@app.get("/tropes", response_model=list[TropeCount])
-def list_tropes(db: Session = Depends(get_db)) -> list[TropeCount]:
-    """Every trope used by at least one book, with its book count, sorted by name."""
+@app.get("/tropes", response_model=list[TropeCount], responses=UNAUTHORIZED_RESPONSE)
+def list_tropes(
+    user: User = Depends(current_user), db: Session = Depends(get_db)
+) -> list[TropeCount]:
+    """Every trope on at least one of your books, with its book count, sorted by name."""
     rows = db.execute(
         select(Trope.name, func.count(book_tropes.c.book_id))
         .join(book_tropes, book_tropes.c.trope_id == Trope.id)
+        .join(Book, Book.id == book_tropes.c.book_id)
+        .where(Book.owner_id == user.id)
         .group_by(Trope.id)
         .order_by(Trope.name)
     )
@@ -160,14 +186,21 @@ def list_tropes(db: Session = Depends(get_db)) -> list[TropeCount]:
 
 
 @app.get("/books/{book_id}", response_model=BookRead, responses=NOT_FOUND_RESPONSE)
-def get_book(book_id: int, db: Session = Depends(get_db)) -> Book:
-    return get_book_or_404(db, book_id)
+def get_book(
+    book_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+) -> Book:
+    return get_book_or_404(db, book_id, user)
 
 
 @app.put("/books/{book_id}", response_model=BookRead, responses=NOT_FOUND_RESPONSE)
-def update_book(book_id: int, payload: BookUpdate, db: Session = Depends(get_db)) -> Book:
+def update_book(
+    book_id: int,
+    payload: BookUpdate,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+) -> Book:
     """Partially update a book: only fields present in the request body change."""
-    book = get_book_or_404(db, book_id)
+    book = get_book_or_404(db, book_id, user)
     changes = payload.model_dump(exclude_unset=True)
     if "tropes" in changes:
         book.tropes = get_or_create_tropes(db, changes.pop("tropes"))
@@ -183,8 +216,10 @@ def update_book(book_id: int, payload: BookUpdate, db: Session = Depends(get_db)
 @app.delete(
     "/books/{book_id}", status_code=status.HTTP_204_NO_CONTENT, responses=NOT_FOUND_RESPONSE
 )
-def delete_book(book_id: int, db: Session = Depends(get_db)) -> Response:
-    book = get_book_or_404(db, book_id)
+def delete_book(
+    book_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)
+) -> Response:
+    book = get_book_or_404(db, book_id, user)
     db.delete(book)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

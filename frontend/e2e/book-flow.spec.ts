@@ -1,14 +1,17 @@
 /**
  * EX2 automated integration flow, against the REAL FastAPI backend on a fresh
  * SQLite database (see playwright.config.ts):
- *   1. open the app            5. open it, mark as read, give it 5 stars
+ *   1. open the app (sign up)  5. open it, mark as read, give it 5 stars
  *   2. add a book              6. try an invalid action -> error message shown
  *   3. see it in the list      7. delete it -> confirm it's gone
  *   4. filter by its genre (and by trope)
  * Every step attaches a screenshot to the HTML report.
  */
 import { expect, test, type Page } from '@playwright/test';
-import { API_URL } from './env';
+
+/** Same-origin API path; requests made with page.request share the login cookie. */
+const API = '/api';
+const PASSWORD = 'correct horse battery';
 
 const BOOK = {
   title: 'The Left Hand of Darkness',
@@ -38,26 +41,43 @@ function toast(page: Page, text: string | RegExp) {
   return page.getByRole('region', { name: 'Notifications' }).getByText(text);
 }
 
+/** Create an account through the real sign-up page; ends logged in on the book list. */
+async function signUp(page: Page, username: string) {
+  await page.goto('/register');
+  await page.getByLabel('Username').fill(username);
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+  await page.getByLabel('Confirm password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByRole('heading', { name: 'Your books', level: 1 })).toBeVisible();
+}
+
+async function logOut(page: Page) {
+  await page.getByRole('button', { name: 'Log out' }).click();
+  await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible();
+}
+
 function card(page: Page, title: string) {
   return page
     .getByRole('article')
     .filter({ has: page.getByRole('link', { name: title, exact: true }) });
 }
 
-test('add, find, filter, update, reject invalid input and delete a book', async ({
-  page,
-  request,
-}) => {
-  // The backend starts on an empty database; add one unrelated book through the API.
-  const seeded = await request.post(`${API_URL}/books`, { data: OTHER });
-  expect(seeded.status()).toBe(201);
-
+test('add, find, filter, update, reject invalid input and delete a book', async ({ page }) => {
   let bookId = 0;
 
-  await test.step('1. open the app', async () => {
+  await test.step('1. open the app (sign up)', async () => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Your books', level: 1 })).toBeVisible();
-    // Data really comes from the backend.
+    // Logged out: the app asks you to log in first.
+    await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible();
+    await page.getByRole('link', { name: 'Create an account' }).click();
+    await signUp(page, 'flowreader');
+    await expect(page.getByRole('region', { name: 'Your vault is empty' })).toBeVisible();
+
+    // Add one unrelated book through the API (same session cookie), so the genre
+    // filter has something to hide; it shows up after a reload.
+    const seeded = await page.request.post(`${API}/books`, { data: OTHER });
+    expect(seeded.status()).toBe(201);
+    await page.reload();
     await expect(page.getByRole('link', { name: OTHER.title, exact: true })).toBeVisible();
     await snap(page, '1-open-app');
   });
@@ -81,7 +101,7 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     await snap(page, '2a-add-form-filled');
 
     const created = page.waitForResponse(
-      (r) => r.url() === `${API_URL}/books` && r.request().method() === 'POST',
+      (r) => r.url().endsWith(`${API}/books`) && r.request().method() === 'POST',
     );
     await page.getByRole('button', { name: 'Add book' }).click();
     const response = await created;
@@ -155,7 +175,7 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     );
 
     // Saved on the server, not just in the UI.
-    const saved = await (await request.get(`${API_URL}/books/${bookId}`)).json();
+    const saved = await (await page.request.get(`${API}/books/${bookId}`)).json();
     expect(saved).toMatchObject({ is_read: true, rating: 5 });
     await snap(page, '5-read-and-rated');
   });
@@ -172,7 +192,7 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     await snap(page, '6-validation-error');
 
     // Nothing invalid reached the server.
-    const unchanged = await (await request.get(`${API_URL}/books/${bookId}`)).json();
+    const unchanged = await (await page.request.get(`${API}/books/${bookId}`)).json();
     expect(unchanged.title).toBe(BOOK.title);
 
     await page.getByRole('button', { name: 'Cancel' }).click();
@@ -198,9 +218,45 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     await snap(page, '7b-deleted');
 
     // Gone on the server, and its page now says so.
-    expect((await request.get(`${API_URL}/books/${bookId}`)).status()).toBe(404);
+    expect((await page.request.get(`${API}/books/${bookId}`)).status()).toBe(404);
     await page.goto(`/books/${bookId}`);
     await expect(page.getByRole('heading', { name: 'Book not found' })).toBeVisible();
     await snap(page, '7c-not-found');
+  });
+});
+
+test('each account only sees its own books', async ({ page }) => {
+  let aliceBook = 0;
+
+  await test.step('alice adds a private book', async () => {
+    await signUp(page, 'alice');
+    const created = await page.request.post(`${API}/books`, {
+      data: { title: 'Alice’s Diary', author: 'Alice', genre: 'Non-Fiction' },
+    });
+    expect(created.status()).toBe(201);
+    aliceBook = (await created.json()).id;
+    await page.reload();
+    await expect(page.getByRole('link', { name: 'Alice’s Diary' })).toBeVisible();
+    await logOut(page);
+  });
+
+  await test.step('bob cannot see it, not even by its URL', async () => {
+    await signUp(page, 'bob');
+    await expect(page.getByRole('region', { name: 'Your vault is empty' })).toBeVisible();
+    await page.goto(`/books/${aliceBook}`);
+    await expect(page.getByRole('heading', { name: 'Book not found' })).toBeVisible();
+    expect((await page.request.get(`${API}/books/${aliceBook}`)).status()).toBe(404);
+    await snap(page, 'bob-sees-not-found');
+    await logOut(page);
+  });
+
+  await test.step('logged out: pages redirect to login and come back after', async () => {
+    await page.goto(`/books/${aliceBook}`);
+    await expect(page).toHaveURL(`/login?next=%2Fbooks%2F${aliceBook}`);
+    await page.getByLabel('Username').fill('Alice');
+    await page.getByLabel('Password').fill(PASSWORD);
+    await page.getByRole('button', { name: 'Log in' }).click();
+    await expect(page.getByRole('heading', { name: 'Alice’s Diary', level: 1 })).toBeVisible();
+    await snap(page, 'alice-back-in');
   });
 });

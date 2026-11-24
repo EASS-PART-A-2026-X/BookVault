@@ -82,3 +82,44 @@ export function normalizeTrope(name: string): string {
 export function isGenre(value: unknown): value is Genre {
   return typeof value === 'string' && (GENRES as readonly string[]).includes(value);
 }
+
+// ------------------------------------------------------------------ Accounts
+
+/** Backend rules (book-vault/app/schemas.py). */
+export const USERNAME_PATTERN = /^[a-z0-9_.]{3,30}$/;
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+export const DISPLAY_NAME_MAX_LENGTH = 50;
+export const BIO_MAX_LENGTH = 280;
+
+/** The logged-in account (GET /auth/me). */
+export interface User {
+  id: number;
+  username: string;
+  display_name: string;
+  bio: string;
+  is_public: boolean;
+  created_at: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+  display_name?: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface ProfileUpdate {
+  display_name?: string;
+  bio?: string;
+  is_public?: boolean;
+}
+
+/** Same normalisation as the backend: trimmed, lower case. */
+export function normalizeUsername(name: string): string {
+  return name.trim().toLowerCase();
+}

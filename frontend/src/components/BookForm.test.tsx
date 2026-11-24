@@ -5,18 +5,18 @@
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NetworkError } from '../api/books';
-import { mocked, serverValidationError } from '../test/mockApi';
+import { mocked, resetApiMocks, serverValidationError } from '../test/mockApi';
 import { makeBook } from '../test/fixtures';
 import { renderApp } from '../test/render';
 
 vi.mock('../api/books', async () => (await import('../test/mockApiFactory')).default());
 
 beforeEach(() => {
-  vi.resetAllMocks();
+  resetApiMocks();
   mocked.listBooks.mockResolvedValue([]);
 });
 
-async function fillValidBook(user: ReturnType<typeof renderApp>['user']) {
+async function fillValidBook(user: Awaited<ReturnType<typeof renderApp>>['user']) {
   await user.type(screen.getByLabelText('Title'), 'Dune');
   await user.type(screen.getByLabelText('Author'), 'Frank Herbert');
   await user.selectOptions(screen.getByLabelText('Genre'), 'Sci-Fi');
@@ -30,7 +30,7 @@ function errorFor(label: string | RegExp) {
 
 describe('client-side validation', () => {
   it('shows every problem inline, focuses the first, and does not call the API', async () => {
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
 
     await user.click(screen.getByRole('button', { name: 'Add book' }));
 
@@ -43,7 +43,7 @@ describe('client-side validation', () => {
   });
 
   it('rejects whitespace-only title and author, like the backend', async () => {
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await user.type(screen.getByLabelText('Title'), '   ');
     await user.type(screen.getByLabelText('Author'), '\t ');
     await user.selectOptions(screen.getByLabelText('Genre'), 'Fantasy');
@@ -55,7 +55,7 @@ describe('client-side validation', () => {
   });
 
   it('validates a field when it loses focus and clears the error once fixed', async () => {
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     const title = screen.getByLabelText('Title');
 
     await user.click(title);
@@ -71,7 +71,7 @@ describe('client-side validation', () => {
 
   it('submits once everything is valid', async () => {
     mocked.createBook.mockResolvedValue(makeBook({ title: 'Dune' }));
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillValidBook(user);
     await user.click(screen.getByRole('button', { name: 'Add book' }));
 
@@ -101,7 +101,7 @@ describe('server 422 errors', () => {
         },
       ]),
     );
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillValidBook(user);
     await user.click(screen.getByRole('button', { name: 'Add book' }));
 
@@ -126,7 +126,7 @@ describe('server 422 errors', () => {
         { type: 'extra_forbidden', loc: ['body', 'isbn'], msg: 'Extra inputs are not permitted' },
       ]),
     );
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillValidBook(user);
     await user.click(screen.getByRole('button', { name: 'Add book' }));
 
@@ -139,7 +139,7 @@ describe('server 422 errors', () => {
 
   it('shows a clear message when the server cannot be reached while saving', async () => {
     mocked.createBook.mockRejectedValue(new NetworkError(new TypeError('Failed to fetch')));
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillValidBook(user);
     await user.click(screen.getByRole('button', { name: 'Add book' }));
 
@@ -153,7 +153,7 @@ describe('server 422 errors', () => {
 
 describe('regression: blur error must not swallow the Save click', () => {
   it('pressing Save keeps focus in the field, so no blur error shifts the button', async () => {
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     const title = screen.getByLabelText('Title');
     await user.type(title, 'x');
     await user.clear(title);
@@ -180,7 +180,7 @@ describe('regression: server errors survive focus moving between fields', () => 
         { type: 'enum', loc: ['body', 'genre'], msg: 'Input should be a valid genre' },
       ]),
     );
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillValidBook(user);
     await user.click(screen.getByRole('button', { name: 'Add book' }));
     await waitFor(() => expect(screen.getByLabelText('Genre')).toHaveFocus());

@@ -590,13 +590,17 @@ def test_data_persists_across_engine_rebuild(tmp_path: Path) -> None:
         engine, factory = build_session_factory()
         override_with(factory)
         with TestClient(app) as client:
+            client.post("/auth/register", json={"username": "keeper", "password": "x" * 12})
             created = create_book(client, title="Persistent Book")
+            session_cookie = client.cookies.get("bv_session")
         engine.dispose()
 
         # "Second run": a brand-new engine on the same file must see the book.
         engine, factory = build_session_factory()
         override_with(factory)
         with TestClient(app) as client:
+            # The login survives the restart too: the session lives in the database.
+            client.cookies.set("bv_session", session_cookie)
             response = client.get(f"/books/{created['id']}")
             assert response.status_code == 200
             assert response.json() == created

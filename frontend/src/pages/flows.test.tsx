@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeBook } from '../test/fixtures';
-import { mocked } from '../test/mockApi';
+import { mocked, resetApiMocks } from '../test/mockApi';
 import { renderApp } from '../test/render';
 
 vi.mock('../api/books', async () => (await import('../test/mockApiFactory')).default());
@@ -9,7 +9,7 @@ vi.mock('../api/books', async () => (await import('../test/mockApiFactory')).def
 const { listBooks, getBook, createBook, updateBook, deleteBook } = mocked;
 
 beforeEach(() => {
-  vi.resetAllMocks();
+  resetApiMocks();
 });
 
 describe('book list', () => {
@@ -24,7 +24,7 @@ describe('book list', () => {
       }),
       makeBook({ title: 'Emma', author: 'Jane Austen', genre: 'Romance' }),
     ]);
-    renderApp('/');
+    await renderApp('/');
 
     const dune = (await screen.findByRole('link', { name: 'Dune' })).closest('article')!;
     expect(within(dune).getByText('Frank Herbert')).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe('book list', () => {
 
   it('reads filters from the URL and writes changes back to it', async () => {
     listBooks.mockResolvedValue([]);
-    const { user } = renderApp('/?genre=Mystery&status=read');
+    const { user } = await renderApp('/?genre=Mystery&status=read');
 
     await waitFor(() => expect(listBooks).toHaveBeenCalled());
     expect(listBooks.mock.calls.at(-1)?.[0]).toEqual({ genre: 'Mystery', is_read: true });
@@ -76,7 +76,7 @@ describe('add book', () => {
     });
     createBook.mockResolvedValue(created);
     listBooks.mockResolvedValue([created]);
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
 
     await user.type(screen.getByLabelText('Title'), '  Dune ');
     await user.type(screen.getByLabelText('Author'), 'Frank Herbert');
@@ -105,7 +105,7 @@ describe('book detail', () => {
     updateBook
       .mockResolvedValueOnce({ ...book, is_read: true })
       .mockResolvedValueOnce({ ...book, is_read: true, rating: 5 });
-    const { user } = renderApp('/books/7');
+    const { user } = await renderApp('/books/7');
 
     await user.click(await screen.findByRole('button', { name: 'Mark as read' }));
     expect(updateBook).toHaveBeenLastCalledWith(7, { is_read: true });
@@ -125,7 +125,7 @@ describe('book detail', () => {
     const book = makeBook({ id: 3, title: 'Dnue', author: 'F. Herbert', genre: 'Sci-Fi' });
     getBook.mockResolvedValue(book);
     updateBook.mockImplementation(async (_id, patch) => ({ ...book, ...patch }) as typeof book);
-    const { user } = renderApp('/books/3');
+    const { user } = await renderApp('/books/3');
 
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     const title = screen.getByLabelText('Title');
@@ -147,7 +147,7 @@ describe('book detail', () => {
     getBook.mockResolvedValue(makeBook({ id: 5, title: 'Emma' }));
     deleteBook.mockResolvedValue();
     listBooks.mockResolvedValue([]);
-    const { user } = renderApp('/books/5');
+    const { user } = await renderApp('/books/5');
 
     await user.click(await screen.findByRole('button', { name: 'Delete' }));
     const dialog = screen.getByRole('alertdialog', { name: 'Delete this book?' });
@@ -168,7 +168,7 @@ describe('book detail', () => {
   });
 
   it('shows the not-found page for an id that cannot exist, without calling the API', async () => {
-    renderApp('/books/abc');
+    await renderApp('/books/abc');
     expect(screen.getByRole('heading', { name: 'Book not found' })).toBeInTheDocument();
     expect(getBook).not.toHaveBeenCalled();
   });

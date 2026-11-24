@@ -24,12 +24,17 @@ Never edit `uv.lock` by hand. Change dependencies with `uv add` / `uv remove`.
 
 ```
 app/
-  main.py       FastAPI app, lifespan (creates tables), CORS middleware (CORS_ORIGINS), all endpoints incl. GET /health
+  main.py       FastAPI app, lifespan (create_all + migrate), CORS, book/trope endpoints, GET /health
+  auth.py       accounts + sessions: Argon2 hashing, cookie sessions, current_user dependency,
+                /auth/register|login|logout|me and PATCH /users/me
+  migrations.py migrate(engine): small, idempotent ALTERs for databases made by older versions
   database.py   DATABASE_URL (default sqlite:///./data/books.db), engine, SessionLocal, Base, get_db
-  models.py     SQLAlchemy ORM models (typed Mapped[...] style): Book, Trope, book_tropes link table
+  models.py     SQLAlchemy ORM models (typed Mapped[...] style): User, AuthSession, Book, Trope, book_tropes
   schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead, TropeCount
 tests/
-  conftest.py   `client` fixture: fresh in-memory SQLite (StaticPool) per test via dependency_overrides
+  conftest.py   fresh in-memory SQLite (StaticPool) per test; `client` = logged-in user "reader",
+                `make_client("alice")` = another logged-in user, `anon_client` = logged out
+  test_auth.py  accounts, sessions, ownership, migrations
   test_main.py  API tests, grouped by CRUD / filters / validation / 404 / persistence
 data/           runtime SQLite file (gitignored, also the Docker volume at /app/data)
 ```
@@ -54,12 +59,21 @@ data/           runtime SQLite file (gitignored, also the Docker volume at /app/
   `responses=NOT_FOUND_RESPONSE` so the 404 is documented in OpenAPI, and
   `test_404_documented_in_openapi` checks this. Leave validation errors to FastAPI's
   default `422` response.
+- **Auth.** Every endpoint that touches user data takes `user: User = Depends(current_user)`
+  and filters by `owner_id == user.id`. Fetch single books with
+  `get_book_or_404(db, book_id, user)`: someone else's book is a 404, never a 403, so ids
+  don't leak. Declare `responses=UNAUTHORIZED_RESPONSE` (already in `NOT_FOUND_RESPONSE`).
+  Passwords only via `hash_password`/`verify_password`; never return or log them. The
+  session cookie is httpOnly + SameSite=Lax; only `sha256(token)` is stored. Login errors
+  are always the same 401 message (don't reveal whether a username exists).
+- **Schema changes.** New tables: just add the model (`create_all` makes them). New
+  columns on existing tables: add an idempotent step to `app/migrations.py` plus a test
+  that upgrades an old-schema database (see `test_auth.py`).
 - **Tropes.** Many-to-many: `Book.tropes` <-> `Trope` via `book_tropes`. Names are
   normalised with `normalize_trope()` (trim, collapse spaces, lower case) in the schemas
   and in the `?trope=` filter, so each trope is stored once. Endpoints never assign
   `tropes` with `setattr`; they go through `get_or_create_tropes()`. `GET /tropes` only
-  lists tropes used by at least one book. New tables are created by `create_all`, so
-  adding them needs no migration; changing existing columns would.
+  lists tropes used by at least one of the current user's books.
 - **CORS.** Allowed origins come only from `CORS_ORIGINS` (comma-separated, default
   `http://localhost:5173`), parsed by `parse_cors_origins()`. Never use `"*"`. If a new
   endpoint uses a new HTTP method, add it to `allow_methods`.

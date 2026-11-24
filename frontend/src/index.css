@@ -1440,3 +1440,95 @@ a.chip--link:hover {
 .toast__close {
   pointer-events: auto;
 }
+
+/* ============================================================ Accounts */
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 12px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border-strong);
+}
+
+.user-menu__name {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--steel-2);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn--small {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.7rem;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.auth {
+  max-width: 420px;
+  margin: 24px auto 0;
+  text-align: center;
+}
+
+.auth__brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.auth__title {
+  font-size: 1.9rem;
+}
+
+.auth__subtitle {
+  margin: 6px 0 20px;
+  font-family: var(--font-serif);
+  font-style: italic;
+}
+
+.auth .card {
+  text-align: left;
+}
+
+.auth-switch {
+  margin-top: 16px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.auth-switch a {
+  color: var(--gold);
+}
+
+@media (max-width: 640px) {
+  .user-menu__name {
+    display: none;
+  }
+
+  .user-menu {
+    margin-left: 4px;
+    padding-left: 8px;
+  }
+}
+
+/* Logged-in header has more items: below 560px the vault logo alone is the home link
+   (it keeps the accessible name "Book Vault home"). */
+@media (max-width: 560px) {
+  .brand__name {
+    display: none;
+  }
+}

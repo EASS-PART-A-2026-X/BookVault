@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "argon2-cffi>=25.1",
     "fastapi>=0.162.0",
     "pydantic>=2.14.1",
     "sqlalchemy>=2.1.6",

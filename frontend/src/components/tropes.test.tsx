@@ -2,13 +2,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeBook } from '../test/fixtures';
-import { mocked, serverValidationError } from '../test/mockApi';
+import { mocked, resetApiMocks, serverValidationError } from '../test/mockApi';
 import { renderApp } from '../test/render';
 
 vi.mock('../api/books', async () => (await import('../test/mockApiFactory')).default());
 
 beforeEach(() => {
-  vi.resetAllMocks();
+  resetApiMocks();
   mocked.listBooks.mockResolvedValue([]);
   mocked.listTropes.mockResolvedValue([
     { name: 'enemies to lovers', book_count: 2 },
@@ -25,7 +25,7 @@ function chosen() {
     : [];
 }
 
-async function fillRequired(user: ReturnType<typeof renderApp>['user']) {
+async function fillRequired(user: Awaited<ReturnType<typeof renderApp>>['user']) {
   await user.type(screen.getByLabelText('Title'), 'Pride and Prejudice');
   await user.type(screen.getByLabelText('Author'), 'Jane Austen');
   await user.selectOptions(screen.getByLabelText('Genre'), 'Romance');
@@ -33,7 +33,7 @@ async function fillRequired(user: ReturnType<typeof renderApp>['user']) {
 
 describe('trope input', () => {
   it('adds with Enter or comma, normalises, ignores duplicates and blanks', async () => {
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     const input = screen.getByLabelText(/^Tropes/);
 
     await user.type(input, '  Enemies   To Lovers {Enter}');
@@ -48,7 +48,7 @@ describe('trope input', () => {
   });
 
   it('removes with × or Backspace on an empty input', async () => {
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     const input = screen.getByLabelText(/^Tropes/);
     await user.type(input, 'a{Enter}b{Enter}c{Enter}');
 
@@ -59,7 +59,7 @@ describe('trope input', () => {
   });
 
   it('suggests tropes already in the vault, minus the chosen ones', async () => {
-    const { user, container } = renderApp('/books/new');
+    const { user, container } = await renderApp('/books/new');
     await waitFor(() => expect(container.querySelectorAll('datalist option')).toHaveLength(2));
 
     await user.type(screen.getByLabelText(/^Tropes/), 'found family{Enter}');
@@ -71,7 +71,7 @@ describe('trope input', () => {
 
   it('sends the tropes, including one typed but not yet added', async () => {
     mocked.createBook.mockResolvedValue(makeBook());
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillRequired(user);
     await user.type(screen.getByLabelText(/^Tropes/), 'enemies to lovers{Enter}Slow Burn');
     await user.click(screen.getByRole('button', { name: 'Add book' }));
@@ -91,7 +91,7 @@ describe('trope input', () => {
         },
       ]),
     );
-    const { user } = renderApp('/books/new');
+    const { user } = await renderApp('/books/new');
     await fillRequired(user);
     await user.type(screen.getByLabelText(/^Tropes/), 'heist{Enter}');
     await user.click(screen.getByRole('button', { name: 'Add book' }));
@@ -107,7 +107,7 @@ describe('trope input', () => {
     mocked.updateBook.mockImplementation(
       async (_id, patch) => ({ ...book, ...patch }) as typeof book,
     );
-    const { user } = renderApp('/books/2');
+    const { user } = await renderApp('/books/2');
 
     await user.click(await screen.findByRole('button', { name: 'Edit' }));
     expect(chosen()).toEqual(['matchmaking', 'slow burn']);
@@ -127,7 +127,7 @@ describe('trope display', () => {
     mocked.listBooks.mockResolvedValue([
       makeBook({ title: 'Busy', tropes: ['a', 'b', 'c', 'd', 'e'] }),
     ]);
-    renderApp('/');
+    await renderApp('/');
     const card = (await screen.findByRole('link', { name: 'Busy' })).closest('article')!;
     const chips = within(within(card).getByRole('list', { name: 'Tropes' })).getAllByRole(
       'listitem',
@@ -137,7 +137,7 @@ describe('trope display', () => {
 
   it('links each trope on the detail page to the filtered list', async () => {
     mocked.getBook.mockResolvedValue(makeBook({ id: 3, tropes: ['found family'] }));
-    renderApp('/books/3');
+    await renderApp('/books/3');
     expect(await screen.findByRole('link', { name: 'found family' })).toHaveAttribute(
       'href',
       '/?trope=found%20family',
@@ -147,7 +147,7 @@ describe('trope display', () => {
 
 describe('trope filter', () => {
   it('lists tropes with counts and filters the books by the chosen one', async () => {
-    const { user } = renderApp('/');
+    const { user } = await renderApp('/');
     const select = screen.getByLabelText('Trope');
     await waitFor(() =>
       expect(
@@ -165,7 +165,7 @@ describe('trope filter', () => {
   });
 
   it('applies a trope from the URL (e.g. a link from a book page)', async () => {
-    renderApp('/?trope=found%20family&genre=Romance');
+    await renderApp('/?trope=found%20family&genre=Romance');
     await waitFor(() =>
       expect(mocked.listBooks.mock.calls.at(-1)?.[0]).toEqual({
         genre: 'Romance',
@@ -176,7 +176,7 @@ describe('trope filter', () => {
   });
 
   it('keeps an unknown trope from the URL selectable and shows the no-match state', async () => {
-    renderApp('/?trope=time%20loop');
+    await renderApp('/?trope=time%20loop');
     expect(
       await screen.findByRole('region', { name: 'No books match these filters' }),
     ).toBeInTheDocument();

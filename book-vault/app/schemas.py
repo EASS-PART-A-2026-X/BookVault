@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
     StringConstraints,
@@ -127,6 +128,73 @@ class BookRead(BookBase):
     def trope_names(cls, value: list[object]) -> list[object]:
         # The ORM gives Trope objects; the API returns their names.
         return [getattr(item, "name", item) for item in value]
+
+
+# ---------------------------------------------------------------- Accounts
+
+USERNAME_PATTERN = r"^[a-z0-9_.]{3,30}$"
+PASSWORD_MIN_LENGTH = 8
+PASSWORD_MAX_LENGTH = 128
+
+
+def _normalize_username(value: object) -> object:
+    return value.strip().lower() if isinstance(value, str) else value
+
+
+# Trimmed and lower-cased *before* the pattern check (StringConstraints alone checks the
+# pattern first), so "  Gal_A " becomes "gal_a" instead of being rejected.
+Username = Annotated[
+    str, StringConstraints(pattern=USERNAME_PATTERN), BeforeValidator(_normalize_username)
+]
+# Passwords are taken exactly as typed (no trimming).
+Password = Annotated[
+    str, StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH)
+]
+DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
+Bio = Annotated[str, StringConstraints(strip_whitespace=True, max_length=280)]
+
+
+class RegisterRequest(BaseModel):
+    """POST /auth/register. Display name defaults to the username."""
+
+    username: Username
+    password: Password
+    display_name: DisplayName | None = None
+
+
+class LoginRequest(BaseModel):
+    """POST /auth/login. Not validated beyond types: a wrong value just fails to log in."""
+
+    username: str
+    password: str
+
+
+class UserRead(BaseModel):
+    """The logged-in user's own account (GET /auth/me)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    display_name: str
+    bio: str
+    is_public: bool
+    created_at: datetime
+
+
+class ProfileUpdate(BaseModel):
+    """PATCH /users/me: change only what's sent. None of these may be null."""
+
+    display_name: DisplayName | None = None
+    bio: Bio | None = None
+    is_public: bool | None = None
+
+    @model_validator(mode="after")
+    def reject_nulls(self) -> Self:
+        for field in self.model_fields_set:
+            if getattr(self, field) is None:
+                raise ValueError(f"{field} cannot be null")
+        return self
 
 
 class TropeCount(BaseModel):

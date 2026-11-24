@@ -2,9 +2,20 @@
  * The only module that talks to the Book Vault API. Everything else imports these
  * functions and error classes, so components never call fetch directly.
  */
-import type { Book, BookCreate, BookFilters, BookUpdate, TropeCount } from '../types';
+import type {
+  Book,
+  BookCreate,
+  BookFilters,
+  BookUpdate,
+  LoginRequest,
+  ProfileUpdate,
+  RegisterRequest,
+  TropeCount,
+  User,
+} from '../types';
 
-const DEFAULT_API_URL = 'http://localhost:8000';
+/** Same origin by default: forwarded to the backend by Vite (dev) or nginx (Docker). */
+const DEFAULT_API_URL = '/api';
 
 /** Base URL from VITE_API_URL (build/dev time), without a trailing slash. */
 export const API_URL: string = (import.meta.env.VITE_API_URL || DEFAULT_API_URL).replace(
@@ -76,12 +87,24 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/**
+ * Called when the server says the session is gone (401) on a normal request, so the
+ * app can send the user to the login page. Auth calls themselves handle their 401s.
+ */
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
       headers: { Accept: 'application/json', ...init.headers },
+      // Send the session cookie (also when VITE_API_URL points at another origin).
+      credentials: 'include',
     });
   } catch (error) {
     // Let callers recognise their own cancellations (e.g. on unmount).
@@ -90,6 +113,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   const body = await readJson(response);
+
+  if (response.status === 401 && !path.startsWith('/auth/')) onUnauthorized?.();
 
   if (!response.ok) {
     // Only trust `detail` from a JSON body; a proxy's HTML/text error page is not a message.
@@ -151,6 +176,29 @@ export async function deleteBook(id: number, signal?: AbortSignal): Promise<void
 }
 
 /** True for a cancelled request (AbortController). DOMException isn't always an Error. */
+// ------------------------------------------------------------------ Accounts
+
+export function register(data: RegisterRequest): Promise<User> {
+  return request<User>('/auth/register', jsonInit('POST', data));
+}
+
+export function login(data: LoginRequest): Promise<User> {
+  return request<User>('/auth/login', jsonInit('POST', data));
+}
+
+export async function logout(): Promise<void> {
+  await request<undefined>('/auth/logout', { method: 'POST' });
+}
+
+/** The logged-in user; rejects with a 401 ApiError when nobody is logged in. */
+export function getMe(signal?: AbortSignal): Promise<User> {
+  return request<User>('/auth/me', { signal });
+}
+
+export function updateProfile(data: ProfileUpdate): Promise<User> {
+  return request<User>('/users/me', jsonInit('PATCH', data));
+}
+
 export function isAbortError(error: unknown): boolean {
   return isRecord(error) && error.name === 'AbortError';
 }

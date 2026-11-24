@@ -6,20 +6,22 @@ import os
 # so running the tests never creates or touches ./data/books.db.
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
-from collections.abc import Generator  # noqa: E402
+from collections.abc import Callable, Generator  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy import Engine, create_engine  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
 
+DEFAULT_PASSWORD = "correct horse battery"
+
 
 @pytest.fixture
-def client() -> Generator[TestClient, None, None]:
+def engine() -> Generator[Engine, None, None]:
     # StaticPool reuses a single connection, so every session sees the same
     # in-memory database (otherwise each connection would get an empty one).
     engine = create_engine(
@@ -38,7 +40,40 @@ def client() -> Generator[TestClient, None, None]:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as test_client:
-        yield test_client
+    yield engine
     app.dependency_overrides.clear()
     engine.dispose()
+
+
+@pytest.fixture
+def anon_client(engine: Engine) -> Generator[TestClient, None, None]:
+    """A client that is not logged in."""
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def make_client(engine: Engine) -> Generator[Callable[[str], TestClient], None, None]:
+    """Factory: make_client("alice") registers alice and returns her logged-in client.
+    Each client has its own cookie jar, so several users can act in one test."""
+    clients: list[TestClient] = []
+
+    def _make(username: str, password: str = DEFAULT_PASSWORD) -> TestClient:
+        test_client = TestClient(app)
+        test_client.__enter__()
+        clients.append(test_client)
+        response = test_client.post(
+            "/auth/register", json={"username": username, "password": password}
+        )
+        assert response.status_code == 201, response.text
+        return test_client
+
+    yield _make
+    for test_client in clients:
+        test_client.__exit__(None, None, None)
+
+
+@pytest.fixture
+def client(make_client: Callable[[str], TestClient]) -> TestClient:
+    """A logged-in client (user "reader"). The EX1 book tests use this."""
+    return make_client("reader")

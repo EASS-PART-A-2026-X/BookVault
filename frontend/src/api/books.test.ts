@@ -8,6 +8,8 @@ import {
   deleteBook,
   getBook,
   listBooks,
+  login,
+  setUnauthorizedHandler,
   toQueryString,
   updateBook,
 } from './books';
@@ -43,21 +45,22 @@ describe('toQueryString', () => {
 });
 
 describe('request functions', () => {
-  it('defaults to localhost:8000', () => {
-    expect(API_URL).toBe('http://localhost:8000');
+  it('defaults to the same-origin /api prefix', () => {
+    expect(API_URL).toBe('/api');
   });
 
   it('lists books with filters', async () => {
     const fetchMock = mockFetch(jsonResponse(200, []));
     await expect(listBooks({ genre: 'Fantasy' })).resolves.toEqual([]);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://localhost:8000/books?genre=Fantasy');
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/books?genre=Fantasy');
+    expect(fetchMock.mock.calls[0]?.[1]?.credentials).toBe('include');
   });
 
   it('sends JSON for create and update', async () => {
     const fetchMock = mockFetch(jsonResponse(201, { id: 1 }));
     await createBook({ title: 'Dune', author: 'Frank Herbert', genre: 'Sci-Fi' });
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe('http://localhost:8000/books');
+    expect(url).toBe('/api/books');
     expect(init?.method).toBe('POST');
     expect(new Headers(init?.headers).get('Content-Type')).toBe('application/json');
     expect(JSON.parse(String(init?.body))).toEqual({
@@ -115,6 +118,22 @@ describe('request functions', () => {
   it('turns a failed fetch into a NetworkError', async () => {
     mockFetch(new TypeError('Failed to fetch'));
     await expect(listBooks()).rejects.toBeInstanceOf(NetworkError);
+  });
+
+  it('reports a 401 on normal requests to the unauthorized handler, but not on auth calls', async () => {
+    const handler = vi.fn();
+    setUnauthorizedHandler(handler);
+    try {
+      mockFetch(jsonResponse(401, { detail: 'Not authenticated' }));
+      await expect(listBooks()).rejects.toMatchObject({ status: 401 });
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      mockFetch(jsonResponse(401, { detail: 'Invalid username or password' }));
+      await expect(login({ username: 'a', password: 'b' })).rejects.toMatchObject({ status: 401 });
+      expect(handler).toHaveBeenCalledTimes(1);
+    } finally {
+      setUnauthorizedHandler(null);
+    }
   });
 
   it('rethrows aborts untouched', async () => {

@@ -8,6 +8,8 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 
 ## Features
 
+- Accounts: sign up, log in, log out (Argon2 password hashes, httpOnly session cookie)
+- Every user has their own private book list
 - Full CRUD for books (`/books`)
 - Tag books with free-form **tropes** (e.g. `enemies to lovers`, `found family`)
 - Filter the list by `genre`, `is_read`, `min_rating` and `trope` (filters can be combined)
@@ -45,12 +47,35 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 | `GET`    | `/books/{book_id}` | Get one book                      | `200`   | `404`      |
 | `PUT`    | `/books/{book_id}` | Partially update a book           | `200`   | `404`, `422` |
 | `DELETE` | `/books/{book_id}` | Delete a book                     | `204`   | `404`      |
-| `GET`    | `/tropes`          | Tropes in use, with book counts   | `200`   |            |
+| `GET`    | `/tropes`          | Your tropes, with book counts     | `200`   |            |
+| `POST`   | `/auth/register`   | Create an account and log in      | `201`   | `409`, `422` |
+| `POST`   | `/auth/login`      | Log in (sets the session cookie)  | `200`   | `401`      |
+| `POST`   | `/auth/logout`     | Log out (ends the session)        | `204`   |            |
+| `GET`    | `/auth/me`         | The logged-in account             | `200`   | `401`      |
+| `PATCH`  | `/users/me`        | Change display name, bio, public/private | `200` | `401`, `422` |
 | `GET`    | `/health`          | Health check (also pings the DB)  | `200`   | `503`      |
+
+Every `/books` and `/tropes` endpoint needs a logged-in user (otherwise `401
+{"detail": "Not authenticated"}`) and only ever sees that user's books. Another user's
+book id answers `404`, exactly like a missing one. `/health` stays public.
 
 ### Examples
 
-The examples assume the server is running on `http://localhost:8000`.
+The examples assume the server is running on `http://localhost:8000`. curl keeps the
+session cookie in `cookies.txt` (`-c` saves it, `-b` sends it):
+
+```bash
+curl -c cookies.txt -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "gal", "password": "correct horse battery"}'
+```
+
+Add `-b cookies.txt` to every call below so curl sends the cookie (left out for
+brevity).
+
+Usernames are 3–30 characters of `a-z 0-9 _ .` (stored lower case); passwords 8–128
+characters. The first account created also takes over any books that existed before
+accounts were added.
 
 **Create a book**
 
@@ -106,6 +131,17 @@ curl -X PUT http://localhost:8000/books/1 \
   -d '{"rating": 4, "review": "Even better the second time."}'
 ```
 
+**Account**
+
+```bash
+curl http://localhost:8000/auth/me
+curl -X PATCH http://localhost:8000/users/me -H "Content-Type: application/json" \
+  -d '{"display_name": "Gal", "bio": "Fantasy and mysteries", "is_public": true}'
+curl -X POST http://localhost:8000/auth/logout
+curl -X POST http://localhost:8000/auth/login -c cookies.txt -H "Content-Type: application/json" \
+  -d '{"username": "gal", "password": "correct horse battery"}'
+```
+
 Send `null` for `rating` or `review` to clear them. `tropes` replaces the whole list
 when sent; send `[]` to remove them all. `title`, `author`, `genre`, `is_read` and
 `tropes` can be left out but can't be set to `null`.
@@ -159,6 +195,8 @@ DATABASE_URL=sqlite:///./my-books.db uv run uvicorn app.main:app --reload
 | Variable       | Default                    | Purpose                                                  |
 |----------------|----------------------------|----------------------------------------------------------|
 | `DATABASE_URL` | `sqlite:///./data/books.db` | Where the SQLite database lives                          |
+| `SESSION_DAYS` | `30`                       | How long a login lasts |
+| `COOKIE_SECURE`| `false`                    | Set `true` behind HTTPS so the session cookie is only sent over HTTPS |
 | `CORS_ORIGINS` | `http://localhost:5173`    | Comma-separated browser origins allowed to call the API (the Vite dev server by default). Setting it replaces the default; an empty value allows none |
 
 ```bash

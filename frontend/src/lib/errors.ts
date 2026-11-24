@@ -6,9 +6,9 @@ import {
   ValidationError,
   type ValidationIssue,
 } from '../api/books';
-import { FIELD_ORDER, type FieldErrors, type FieldName } from './validation';
+import { FIELD_ORDER, type FieldErrors } from './validation';
 
-export type ErrorKind = 'network' | 'not-found' | 'validation' | 'server' | 'unknown';
+export type ErrorKind = 'network' | 'auth' | 'not-found' | 'validation' | 'server' | 'unknown';
 
 export interface DescribedError {
   kind: ErrorKind;
@@ -46,6 +46,14 @@ export function describeError(error: unknown): DescribedError {
     };
   }
   if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return {
+        kind: 'auth',
+        title: 'You’re signed out',
+        message: 'Please log in again to continue.',
+        retryable: false,
+      };
+    }
     if (error.status === 404) {
       return { kind: 'not-found', title: 'Not found', message: error.message, retryable: false };
     }
@@ -77,10 +85,6 @@ export function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.status === 404;
 }
 
-function isFieldName(value: unknown): value is FieldName {
-  return typeof value === 'string' && (FIELD_ORDER as string[]).includes(value);
-}
-
 /** Pydantic prefixes model-validator messages with "Value error, ". */
 function cleanMessage(msg: string): string {
   const text = msg.replace(/^Value error, /, '');
@@ -98,22 +102,33 @@ export function mapValidationIssues(issues: ValidationIssue[]): {
   fieldErrors: FieldErrors;
   formErrors: string[];
 } {
-  const fieldErrors: FieldErrors = {};
+  return mapIssuesToFields(issues, FIELD_ORDER);
+}
+
+/** The same mapping for any form, given the names of its fields. */
+export function mapIssuesToFields<F extends string>(
+  issues: ValidationIssue[],
+  fields: readonly F[],
+): { fieldErrors: Partial<Record<F, string>>; formErrors: string[] } {
+  const isField = (value: unknown): value is F =>
+    typeof value === 'string' && (fields as readonly string[]).includes(value);
+  const fieldErrors: Partial<Record<F, string>> = {};
   const formErrors: string[] = [];
 
   for (const issue of issues) {
     const [source, name] = issue.loc;
-    let field: FieldName | undefined;
-    if (source === 'body' && isFieldName(name)) {
+    let field: F | undefined;
+    if (source === 'body' && isField(name)) {
       field = name;
     } else if (source === 'body' && issue.loc.length === 1) {
       const match = /^Value error, (\w+) cannot be null/.exec(issue.msg);
-      if (match && isFieldName(match[1])) field = match[1];
+      if (match && isField(match[1])) field = match[1];
     }
 
     const message = cleanMessage(issue.msg);
     if (field) {
-      fieldErrors[field] = fieldErrors[field] ? `${fieldErrors[field]} ${message}` : message;
+      const previous = fieldErrors[field];
+      fieldErrors[field] = previous ? `${previous} ${message}` : message;
     } else {
       formErrors.push(message);
     }

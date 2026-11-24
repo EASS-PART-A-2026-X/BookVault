@@ -95,8 +95,16 @@ describe('describeError', () => {
     });
   });
 
-  it('names an absolute API URL in the network message', () => {
-    expect(describeError(new NetworkError()).message).toContain('at http://localhost:8000');
+  it('does not show a same-origin API path in the network message', () => {
+    expect(describeError(new NetworkError()).message).toBe(
+      "The Book Vault API isn't responding. Check that the backend is running, then try again.",
+    );
+  });
+
+  it('explains a 401 as being signed out', () => {
+    expect(
+      describeError(new ApiError(401, 'Not authenticated', 'Not authenticated')),
+    ).toMatchObject({ kind: 'auth', retryable: false });
   });
 
   it('detects not-found errors', () => {

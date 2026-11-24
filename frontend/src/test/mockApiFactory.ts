@@ -12,5 +12,20 @@ export default async function mockApiModule() {
     deleteBook: vi.fn(),
     // Pages load trope suggestions; default to none so tests needn't care.
     listTropes: vi.fn(async () => []),
+    // Logged in as "reader" unless a test says otherwise.
+    getMe: vi.fn(async () => ({
+      id: 1,
+      username: 'reader',
+      display_name: 'Reader',
+      bio: '',
+      is_public: false,
+      created_at: '2026-11-24T10:00:00',
+    })),
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(async () => undefined),
+    updateProfile: vi.fn(),
+    // Real behaviour, but spied, so tests can grab and fire the 401 handler.
+    setUnauthorizedHandler: vi.fn(actual.setUnauthorizedHandler),
   };
 }
