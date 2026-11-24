@@ -81,7 +81,7 @@ function RequestsLink() {
 
 function Layout() {
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, state } = useAuth();
   return (
     <RequestCountProvider enabled={user !== null}>
       <a href="#main" className="skip-link">
@@ -108,7 +108,9 @@ function Layout() {
                 <RequestsLink />
                 <UserMenu />
               </>
-            ) : (
+            ) : state.status === 'anonymous' ? (
+              // Only once we know nobody is logged in: while the session check is
+              // loading or failed (backend down) we can't tell, so show neither.
               <>
                 <NavLink to="/login" className="nav-link">
                   Log in
@@ -117,7 +119,7 @@ function Layout() {
                   Sign up
                 </NavLink>
               </>
-            )}
+            ) : null}
           </nav>
         </div>
       </header>

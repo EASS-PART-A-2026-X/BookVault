@@ -1,0 +1,186 @@
+# Backend: lint, format check, tests with coverage (book-vault/)
+# Recorded 2026-11-24 19:48 UTC on branch social, commit 400f54e + S3 working tree (macOS, Node v22.23.5, uv 0.13.5)
+
+$ uv run ruff check .
+All checks passed!
+[exit code: 0]
+
+$ uv run ruff format --check .
+16 files already formatted
+[exit code: 0]
+
+$ uv run pytest -v --cov=app --cov-report=term-missing
+============================= test session starts ==============================
+platform darwin -- Python 3.11.3, pytest-9.1.1, pluggy-1.7.0 -- /Users/galamshalem/project/book-vault/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/galamshalem/project/book-vault
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.15.1
+collecting ... collected 146 items
+
+tests/test_auth.py::test_register_creates_account_and_logs_in PASSED     [  0%]
+tests/test_auth.py::test_display_name_defaults_to_username PASSED        [  1%]
+tests/test_auth.py::test_session_cookie_is_httponly_and_samesite PASSED  [  2%]
+tests/test_auth.py::test_password_is_stored_hashed PASSED                [  2%]
+tests/test_auth.py::test_username_taken_is_case_insensitive PASSED       [  3%]
+tests/test_auth.py::test_register_validation[too-short] PASSED           [  4%]
+tests/test_auth.py::test_register_validation[too-long] PASSED            [  4%]
+tests/test_auth.py::test_register_validation[space] PASSED               [  5%]
+tests/test_auth.py::test_register_validation[non-ascii] PASSED           [  6%]
+tests/test_auth.py::test_register_validation[short-pw] PASSED            [  6%]
+tests/test_auth.py::test_register_validation[long-pw] PASSED             [  7%]
+tests/test_auth.py::test_register_validation[blank-name] PASSED          [  8%]
+tests/test_auth.py::test_register_validation[missing] PASSED             [  8%]
+tests/test_auth.py::test_login_and_logout PASSED                         [  9%]
+tests/test_auth.py::test_logout_kills_the_session_server_side PASSED     [ 10%]
+tests/test_auth.py::test_logout_without_session_is_fine PASSED           [ 10%]
+tests/test_auth.py::test_bad_login_gives_the_same_401[gal-wrong password] PASSED [ 11%]
+tests/test_auth.py::test_bad_login_gives_the_same_401[nobody-correct horse battery] PASSED [ 12%]
+tests/test_auth.py::test_login_upgrades_an_outdated_password_hash PASSED [ 13%]
+tests/test_auth.py::test_expired_session_is_rejected PASSED              [ 13%]
+tests/test_auth.py::test_garbage_cookie_is_rejected PASSED               [ 14%]
+tests/test_auth.py::test_update_profile PASSED                           [ 15%]
+tests/test_auth.py::test_update_profile_is_partial PASSED                [ 15%]
+tests/test_auth.py::test_update_profile_validation[payload0] PASSED      [ 16%]
+tests/test_auth.py::test_update_profile_validation[payload1] PASSED      [ 17%]
+tests/test_auth.py::test_update_profile_validation[payload2] PASSED      [ 17%]
+tests/test_auth.py::test_update_profile_validation[payload3] PASSED      [ 18%]
+tests/test_auth.py::test_endpoints_require_login[get-/books] PASSED      [ 19%]
+tests/test_auth.py::test_endpoints_require_login[post-/books] PASSED     [ 19%]
+tests/test_auth.py::test_endpoints_require_login[get-/books/1] PASSED    [ 20%]
+tests/test_auth.py::test_endpoints_require_login[put-/books/1] PASSED    [ 21%]
+tests/test_auth.py::test_endpoints_require_login[delete-/books/1] PASSED [ 21%]
+tests/test_auth.py::test_endpoints_require_login[get-/tropes] PASSED     [ 22%]
+tests/test_auth.py::test_endpoints_require_login[get-/auth/me] PASSED    [ 23%]
+tests/test_auth.py::test_endpoints_require_login[patch-/users/me] PASSED [ 23%]
+tests/test_auth.py::test_health_stays_public PASSED                      [ 24%]
+tests/test_auth.py::test_users_only_see_their_own_books PASSED           [ 25%]
+tests/test_auth.py::test_cors_allows_credentials_for_the_dev_origin PASSED [ 26%]
+tests/test_auth.py::test_migrate_adds_owner_column_and_is_idempotent PASSED [ 26%]
+tests/test_auth.py::test_first_account_adopts_books_from_before_accounts PASSED [ 27%]
+tests/test_main.py::test_create_book_returns_201_with_generated_fields PASSED [ 28%]
+tests/test_main.py::test_create_book_applies_defaults_and_strips_whitespace PASSED [ 28%]
+tests/test_main.py::test_rating_and_review_allowed_when_unread PASSED    [ 29%]
+tests/test_main.py::test_list_books_empty PASSED                         [ 30%]
+tests/test_main.py::test_get_book_by_id PASSED                           [ 30%]
+tests/test_main.py::test_update_book_is_partial_and_refreshes_updated_at PASSED [ 31%]
+tests/test_main.py::test_update_can_clear_rating_and_review PASSED       [ 32%]
+tests/test_main.py::test_delete_book PASSED                              [ 32%]
+tests/test_main.py::test_full_crud_lifecycle PASSED                      [ 33%]
+tests/test_main.py::test_filter_by_genre PASSED                          [ 34%]
+tests/test_main.py::test_filter_by_is_read PASSED                        [ 34%]
+tests/test_main.py::test_filter_by_min_rating_excludes_unrated PASSED    [ 35%]
+tests/test_main.py::test_filters_combined PASSED                         [ 36%]
+tests/test_main.py::test_rating_boundaries_accepted[1] PASSED            [ 36%]
+tests/test_main.py::test_rating_boundaries_accepted[5] PASSED            [ 37%]
+tests/test_main.py::test_rating_out_of_range_rejected[0] PASSED          [ 38%]
+tests/test_main.py::test_rating_out_of_range_rejected[6] PASSED          [ 39%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[empty-title] PASSED [ 39%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[empty-author] PASSED [ 40%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[whitespace-title] PASSED [ 41%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[whitespace-author] PASSED [ 41%]
+tests/test_main.py::test_invalid_genre_rejected PASSED                   [ 42%]
+tests/test_main.py::test_missing_required_field_rejected[title] PASSED   [ 43%]
+tests/test_main.py::test_missing_required_field_rejected[author] PASSED  [ 43%]
+tests/test_main.py::test_missing_required_field_rejected[genre] PASSED   [ 44%]
+tests/test_main.py::test_empty_body_rejected PASSED                      [ 45%]
+tests/test_main.py::test_invalid_rating_via_put_rejected[0] PASSED       [ 45%]
+tests/test_main.py::test_invalid_rating_via_put_rejected[6] PASSED       [ 46%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[blank-title] PASSED [ 47%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[empty-author] PASSED [ 47%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[bad-genre] PASSED [ 48%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[null-title] PASSED [ 49%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[null-is_read] PASSED [ 50%]
+tests/test_main.py::test_min_rating_filter_out_of_range_rejected[0] PASSED [ 50%]
+tests/test_main.py::test_min_rating_filter_out_of_range_rejected[6] PASSED [ 51%]
+tests/test_main.py::test_invalid_genre_filter_rejected PASSED            [ 52%]
+tests/test_main.py::test_get_missing_book_returns_404 PASSED             [ 52%]
+tests/test_main.py::test_update_missing_book_returns_404 PASSED          [ 53%]
+tests/test_main.py::test_delete_missing_book_returns_404 PASSED          [ 54%]
+tests/test_main.py::test_404_documented_in_openapi PASSED                [ 54%]
+tests/test_main.py::test_new_book_has_no_tropes_by_default PASSED        [ 55%]
+tests/test_main.py::test_create_with_tropes_normalises_and_dedupes PASSED [ 56%]
+tests/test_main.py::test_tropes_are_shared_between_books PASSED          [ 56%]
+tests/test_main.py::test_update_replaces_tropes PASSED                   [ 57%]
+tests/test_main.py::test_update_with_empty_list_clears_tropes PASSED     [ 58%]
+tests/test_main.py::test_update_without_tropes_keeps_them PASSED         [ 58%]
+tests/test_main.py::test_update_null_tropes_rejected PASSED              [ 59%]
+tests/test_main.py::test_invalid_tropes_rejected[blank] PASSED           [ 60%]
+tests/test_main.py::test_invalid_tropes_rejected[too-long-name] PASSED   [ 60%]
+tests/test_main.py::test_invalid_tropes_rejected[too-many] PASSED        [ 61%]
+tests/test_main.py::test_invalid_tropes_rejected[not-a-list] PASSED      [ 62%]
+tests/test_main.py::test_invalid_tropes_rejected[not-a-string] PASSED    [ 63%]
+tests/test_main.py::test_filter_by_trope_is_case_and_space_insensitive PASSED [ 63%]
+tests/test_main.py::test_trope_filter_combines_with_other_filters PASSED [ 64%]
+tests/test_main.py::test_invalid_trope_filter_rejected[] PASSED          [ 65%]
+tests/test_main.py::test_invalid_trope_filter_rejected[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx] PASSED [ 65%]
+tests/test_main.py::test_tropes_list_ignores_unused_tropes PASSED        [ 66%]
+tests/test_main.py::test_deleting_a_book_releases_its_tropes PASSED      [ 67%]
+tests/test_main.py::test_tropes_empty_when_no_books PASSED               [ 67%]
+tests/test_main.py::test_health_ok PASSED                                [ 68%]
+tests/test_main.py::test_health_returns_503_when_database_fails PASSED   [ 69%]
+tests/test_main.py::test_cors_default_origin_is_vite_dev_server PASSED   [ 69%]
+tests/test_main.py::test_parse_cors_origins[single] PASSED               [ 70%]
+tests/test_main.py::test_parse_cors_origins[list-with-spaces-and-trailing-slash] PASSED [ 71%]
+tests/test_main.py::test_parse_cors_origins[empty-disables] PASSED       [ 71%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[GET] PASSED [ 72%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[POST] PASSED [ 73%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[PUT] PASSED [ 73%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[DELETE] PASSED [ 74%]
+tests/test_main.py::test_cors_simple_request_gets_allow_origin_header PASSED [ 75%]
+tests/test_main.py::test_cors_unknown_origin_rejected PASSED             [ 76%]
+tests/test_main.py::test_cors_origins_read_from_env_var PASSED           [ 76%]
+tests/test_main.py::test_get_db_yields_session_and_closes_it PASSED      [ 77%]
+tests/test_main.py::test_get_db_closes_session_on_error PASSED           [ 78%]
+tests/test_main.py::test_default_database_dir_is_created PASSED          [ 78%]
+tests/test_main.py::test_custom_database_url_dir_is_created PASSED       [ 79%]
+tests/test_main.py::test_in_memory_database_creates_no_dirs[sqlite://] PASSED [ 80%]
+tests/test_main.py::test_in_memory_database_creates_no_dirs[sqlite:///:memory:] PASSED [ 80%]
+tests/test_main.py::test_data_persists_across_engine_rebuild PASSED      [ 81%]
+tests/test_social.py::test_search_matches_username_and_display_name PASSED [ 82%]
+tests/test_social.py::test_search_ranks_exact_then_prefix_matches_first PASSED [ 82%]
+tests/test_social.py::test_search_treats_wildcards_literally PASSED      [ 83%]
+tests/test_social.py::test_search_reports_follow_status PASSED           [ 84%]
+tests/test_social.py::test_search_validation[] PASSED                    [ 84%]
+tests/test_social.py::test_search_validation[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx] PASSED [ 85%]
+tests/test_social.py::test_search_blank_after_trim_returns_nothing PASSED [ 86%]
+tests/test_social.py::test_private_profile_shows_name_bio_counts_but_not_books PASSED [ 86%]
+tests/test_social.py::test_public_profile_books_and_reviews_are_visible PASSED [ 87%]
+tests/test_social.py::test_you_can_always_see_your_own_profile PASSED    [ 88%]
+tests/test_social.py::test_unknown_user_is_404 PASSED                    [ 89%]
+tests/test_social.py::test_social_endpoints_require_login[/users?q=a] PASSED [ 89%]
+tests/test_social.py::test_social_endpoints_require_login[/users/a] PASSED [ 90%]
+tests/test_social.py::test_social_endpoints_require_login[/users/a/books] PASSED [ 91%]
+tests/test_social.py::test_social_endpoints_require_login[/follow-requests] PASSED [ 91%]
+tests/test_social.py::test_following_a_public_profile_is_instant PASSED  [ 92%]
+tests/test_social.py::test_private_profile_request_then_accept PASSED    [ 93%]
+tests/test_social.py::test_declining_a_request_removes_it PASSED         [ 93%]
+tests/test_social.py::test_answering_a_missing_request_is_404[accept] PASSED [ 94%]
+tests/test_social.py::test_answering_a_missing_request_is_404[decline] PASSED [ 95%]
+tests/test_social.py::test_follow_twice_is_idempotent PASSED             [ 95%]
+tests/test_social.py::test_cannot_follow_yourself PASSED                 [ 96%]
+tests/test_social.py::test_unfollow_and_cancel_request PASSED            [ 97%]
+tests/test_social.py::test_removing_a_follower_revokes_access PASSED     [ 97%]
+tests/test_social.py::test_going_private_keeps_existing_followers PASSED [ 98%]
+tests/test_social.py::test_going_public_accepts_pending_requests PASSED  [ 99%]
+tests/test_social.py::test_follow_requests_only_show_your_own PASSED     [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.11.3-final-0 _______________
+
+Name                Stmts   Miss  Cover   Missing
+-------------------------------------------------
+app/__init__.py         0      0   100%
+app/auth.py            88      0   100%
+app/database.py        21      0   100%
+app/main.py           103      0   100%
+app/migrations.py      10      0   100%
+app/models.py          52      0   100%
+app/schemas.py        123      0   100%
+app/social.py         127      0   100%
+-------------------------------------------------
+TOTAL                 524      0   100%
+============================= 146 passed in 10.20s =============================
+[exit code: 0]
+

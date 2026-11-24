@@ -1,0 +1,104 @@
+# Docker Compose with accounts + social, on a throwaway project (-p bvproof, port 8090, fresh volume)
+# Recorded 2026-11-24 19:50 UTC on branch social, commit 400f54e + S3 working tree; Docker version 29.9.2, build a82e528; Docker Compose version v5.6.1
+
+$ docker compose -p bvproof down -v 2>&1 | tail -2
+ Volume bvproof_book-vault-data Removed 
+ Network bvproof_default Removed 
+[exit code: 0]
+
+$ FRONTEND_PORT=8090 docker compose -p bvproof up --build -d --wait --quiet-pull 2>&1 | grep -E 'Created|Healthy|Started'
+ Volume bvproof_book-vault-data Created 
+ Volume bvproof_book-vault-data Created 
+ Network bvproof_default Created 
+ Network bvproof_default Created 
+ Container bvproof-backend-1 Created 
+ Container bvproof-frontend-1 Created 
+ Container bvproof-backend-1 Started 
+ Container bvproof-backend-1 Healthy 
+ Container bvproof-frontend-1 Started 
+ Container bvproof-backend-1 Healthy 
+ Container bvproof-frontend-1 Healthy 
+[exit code: 0]
+
+$ docker compose -p bvproof ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+SERVICE    STATUS                    PORTS
+backend    Up 10 seconds (healthy)   8000/tcp
+frontend   Up 5 seconds (healthy)    0.0.0.0:8090->80/tcp, [::]:8090->80/tcp
+[exit code: 0]
+
+## Logged out: the API refuses, the SPA still serves its routes
+$ for u in "/api/health" "/api/books" "/api/users?q=a" "/login" "/u/someone" "/people"; do printf "%-18s " "$u"; curl -s -o /dev/null -w "%{http_code} %{content_type}\n" "http://localhost:8090$u"; done
+/api/health        200 application/json
+/api/books         401 application/json
+/api/users?q=a     401 application/json
+/login             200 text/html
+/u/someone         200 text/html
+/people            200 text/html
+[exit code: 0]
+
+## Two accounts; ann is private (default), ben searches for her and asks to follow
+$ rm -f $TMP/ann.txt $TMP/ben.txt
+[exit code: 0]
+
+$ curl -s -c $TMP/ann.txt -X POST http://localhost:8090/api/auth/register -H 'Content-Type: application/json' -d '{"username":"ann","password":"evidence-pass","display_name":"Ann"}'
+{"id":1,"username":"ann","display_name":"Ann","bio":"","is_public":false,"created_at":"2026-11-24T19:50:39.175622"}[exit code: 0]
+
+$ grep -c '^#HttpOnly_localhost.*bv_session' $TMP/ann.txt   # 1 = the session cookie is HttpOnly
+1
+[exit code: 0]
+
+$ curl -s -b $TMP/ann.txt -X POST http://localhost:8090/api/books -H 'Content-Type: application/json' -d '{"title":"Emma","author":"Jane Austen","genre":"Romance","review":"Meddling, but charming."}' | python3 -c 'import json,sys; b=json.load(sys.stdin); print(b["id"], b["title"])'
+1 Emma
+[exit code: 0]
+
+$ curl -s -c $TMP/ben.txt -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8090/api/auth/register -H 'Content-Type: application/json' -d '{"username":"ben","password":"evidence-pass"}'
+201
+[exit code: 0]
+
+$ curl -s -b $TMP/ben.txt 'http://localhost:8090/api/users?q=an'; echo
+[{"username":"ann","display_name":"Ann","is_public":false,"follow_status":"none"}]
+[exit code: 0]
+
+$ curl -s -b $TMP/ben.txt -w '  [%{http_code}]\n' http://localhost:8090/api/users/ann/books
+{"detail":"This profile is private"}  [403]
+[exit code: 0]
+
+$ curl -s -b $TMP/ben.txt -X POST http://localhost:8090/api/users/ann/follow; echo
+{"follow_status":"requested"}
+[exit code: 0]
+
+$ curl -s -b $TMP/ann.txt http://localhost:8090/api/follow-requests | python3 -c 'import json,sys; print([r["username"] for r in json.load(sys.stdin)])'
+['ben']
+[exit code: 0]
+
+$ curl -s -b $TMP/ann.txt -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8090/api/follow-requests/ben/accept
+204
+[exit code: 0]
+
+$ curl -s -b $TMP/ben.txt http://localhost:8090/api/users/ann/books | python3 -c 'import json,sys; [print(b["title"], "-", b["review"]) for b in json.load(sys.stdin)]'
+Emma - Meddling, but charming.
+[exit code: 0]
+
+## Persistence: accounts, sessions, books and follows survive down/up
+$ docker compose -p bvproof down 2>&1 | tail -1
+ Network bvproof_default Removed 
+[exit code: 0]
+
+$ docker volume ls --filter name=bvproof --format '{{.Name}}'
+bvproof_book-vault-data
+[exit code: 0]
+
+$ FRONTEND_PORT=8090 docker compose -p bvproof up -d --wait 2>&1 | grep Healthy
+ Container bvproof-backend-1 Healthy 
+ Container bvproof-backend-1 Healthy 
+ Container bvproof-frontend-1 Healthy 
+[exit code: 0]
+
+$ curl -s -b $TMP/ben.txt http://localhost:8090/api/users/ann | python3 -c 'import json,sys; p=json.load(sys.stdin); print(p["username"], p["follow_status"], "books visible:", p["can_view_books"])'
+ann following books visible: True
+[exit code: 0]
+
+$ docker compose -p bvproof exec -T backend python -c "import sqlite3; c=sqlite3.connect('/app/data/books.db'); print(sorted(r[0] for r in c.execute('select name from sqlite_master where type=\"table\"')))"
+['auth_sessions', 'book_tropes', 'books', 'follows', 'tropes', 'users']
+[exit code: 0]
+

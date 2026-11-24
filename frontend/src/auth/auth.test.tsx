@@ -67,6 +67,9 @@ describe('route guards', () => {
     const { user } = await renderApp('/');
     const banner = screen.getByRole('alert');
     expect(banner).toHaveTextContent("Can't reach the server");
+    // We don't know if you're logged in, so the header offers neither state.
+    expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
     await user.click(within(banner).getByRole('button', { name: 'Retry' }));
     expect(await screen.findByRole('heading', { name: 'Your books' })).toBeInTheDocument();
   });

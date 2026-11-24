@@ -1,0 +1,49 @@
+# Frontend: lint (ESLint + Prettier), typecheck, production build (frontend/)
+# Recorded 2026-11-24 19:48 UTC on branch social, commit 400f54e + S3 working tree (macOS, Node v22.23.5, uv 0.13.5)
+
+$ npm run format:check
+
+> book-vault-frontend@0.1.0 format:check
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+[exit code: 0]
+
+$ npm run lint
+
+> book-vault-frontend@0.1.0 lint
+> eslint . --max-warnings=0 && prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+[exit code: 0]
+
+$ npm run typecheck
+
+> book-vault-frontend@0.1.0 typecheck
+> tsc -p tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.e2e.json
+
+[exit code: 0]
+
+$ npm run build
+
+> book-vault-frontend@0.1.0 build
+> npm run typecheck && vite build
+
+
+> book-vault-frontend@0.1.0 typecheck
+> tsc -p tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.e2e.json
+
+vite v8.3.8 building client environment for production...
+transforming...
+✓ 66 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.55 kB │ gzip:  0.32 kB
+dist/assets/index-ClokcGUw.css   22.32 kB │ gzip:  5.52 kB
+dist/assets/index-DxLKjtyH.js   241.82 kB │ gzip: 75.77 kB
+
+✓ built in 107ms
+[exit code: 0]
+
