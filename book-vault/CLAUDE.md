@@ -26,8 +26,8 @@ Never edit `uv.lock` by hand. Change dependencies with `uv add` / `uv remove`.
 app/
   main.py       FastAPI app, lifespan (creates tables), CORS middleware (CORS_ORIGINS), all endpoints incl. GET /health
   database.py   DATABASE_URL (default sqlite:///./data/books.db), engine, SessionLocal, Base, get_db
-  models.py     SQLAlchemy ORM models (typed Mapped[...] style)
-  schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead
+  models.py     SQLAlchemy ORM models (typed Mapped[...] style): Book, Trope, book_tropes link table
+  schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead, TropeCount
 tests/
   conftest.py   `client` fixture: fresh in-memory SQLite (StaticPool) per test via dependency_overrides
   test_main.py  API tests, grouped by CRUD / filters / validation / 404 / persistence
@@ -54,6 +54,12 @@ data/           runtime SQLite file (gitignored, also the Docker volume at /app/
   `responses=NOT_FOUND_RESPONSE` so the 404 is documented in OpenAPI, and
   `test_404_documented_in_openapi` checks this. Leave validation errors to FastAPI's
   default `422` response.
+- **Tropes.** Many-to-many: `Book.tropes` <-> `Trope` via `book_tropes`. Names are
+  normalised with `normalize_trope()` (trim, collapse spaces, lower case) in the schemas
+  and in the `?trope=` filter, so each trope is stored once. Endpoints never assign
+  `tropes` with `setattr`; they go through `get_or_create_tropes()`. `GET /tropes` only
+  lists tropes used by at least one book. New tables are created by `create_all`, so
+  adding them needs no migration; changing existing columns would.
 - **CORS.** Allowed origins come only from `CORS_ORIGINS` (comma-separated, default
   `http://localhost:5173`), parsed by `parse_cors_origins()`. Never use `"*"`. If a new
   endpoint uses a new HTTP method, add it to `allow_methods`.

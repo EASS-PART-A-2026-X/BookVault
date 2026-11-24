@@ -9,6 +9,7 @@ const VALID: BookFormValues = {
   rating: 5,
   is_read: true,
   review: '',
+  tropes: ['slow burn'],
 };
 
 describe('validateBook (mirrors the backend schema)', () => {
@@ -43,6 +44,17 @@ describe('validateBook (mirrors the backend schema)', () => {
 
   it.each([1, 3, 5])('accepts rating %s', (rating) => {
     expect(validateField('rating', { ...VALID, rating })).toBeUndefined();
+  });
+
+  it('limits tropes to 20, each at most 50 characters', () => {
+    const many = Array.from({ length: 21 }, (_, i) => `trope ${i}`);
+    expect(validateField('tropes', { ...VALID, tropes: many })).toBe(
+      'A book can have at most 20 tropes.',
+    );
+    expect(validateField('tropes', { ...VALID, tropes: ['x'.repeat(51)] })).toMatch(
+      /at most 50 characters/,
+    );
+    expect(validateField('tropes', { ...VALID, tropes: [] })).toBeUndefined();
   });
 
   it('finds the first invalid field in form order', () => {

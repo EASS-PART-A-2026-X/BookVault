@@ -9,12 +9,14 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 ## Features
 
 - Full CRUD for books (`/books`)
-- Filter the list by `genre`, `is_read` and `min_rating` (filters can be combined)
+- Tag books with free-form **tropes** (e.g. `enemies to lovers`, `found family`)
+- Filter the list by `genre`, `is_read`, `min_rating` and `trope` (filters can be combined)
 - Input validation with clear `422` errors:
   - `title` and `author` are required and can't be empty or whitespace-only
   - `genre` must be one of: `Fantasy`, `Romance`, `Sci-Fi`, `Thriller`, `Non-Fiction`,
     `Mystery`, `Historical`
   - `rating` is optional, but if given must be an integer from 1 to 5
+  - `tropes` is an optional list of up to 20 tropes, each 1–50 characters
 - Partial updates: `PUT` changes only the fields you send
 - A rating and review are allowed even if the book isn't marked as read
 - Data is stored in a SQLite file and survives restarts
@@ -30,6 +32,7 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 | `rating`     | integer \| null | 1–5, optional                                  |
 | `is_read`    | boolean         | Defaults to `false`                            |
 | `review`     | string \| null  | Optional                                       |
+| `tropes`     | list of strings | Optional, default `[]`. Stored normalised: trimmed, single spaces, lower case, no duplicates. Max 20, each 1–50 chars |
 | `created_at` | datetime        | Set on creation (UTC)                          |
 | `updated_at` | datetime        | Refreshed on every update (UTC)                |
 
@@ -42,6 +45,7 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 | `GET`    | `/books/{book_id}` | Get one book                      | `200`   | `404`      |
 | `PUT`    | `/books/{book_id}` | Partially update a book           | `200`   | `404`, `422` |
 | `DELETE` | `/books/{book_id}` | Delete a book                     | `204`   | `404`      |
+| `GET`    | `/tropes`          | Tropes in use, with book counts   | `200`   |            |
 | `GET`    | `/health`          | Health check (also pings the DB)  | `200`   | `503`      |
 
 ### Examples
@@ -70,6 +74,22 @@ curl "http://localhost:8000/books?genre=Fantasy"
 curl "http://localhost:8000/books?is_read=false"
 curl "http://localhost:8000/books?min_rating=4"          # unrated books are excluded
 curl "http://localhost:8000/books?genre=Sci-Fi&is_read=true&min_rating=4"
+curl "http://localhost:8000/books?trope=enemies%20to%20lovers"   # case-insensitive
+```
+
+**Tropes**
+
+```bash
+curl -X POST http://localhost:8000/books \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Pride and Prejudice", "author": "Jane Austen", "genre": "Romance", "tropes": ["Enemies to Lovers", "slow burn"]}'
+# "tropes": ["enemies to lovers", "slow burn"]
+
+curl http://localhost:8000/tropes
+# [{"name": "enemies to lovers", "book_count": 1}, {"name": "slow burn", "book_count": 1}]
+
+curl -X PUT http://localhost:8000/books/1 -H "Content-Type: application/json" \
+  -d '{"tropes": []}'            # replace the list ([] removes all tropes)
 ```
 
 **Get one book**
@@ -86,8 +106,9 @@ curl -X PUT http://localhost:8000/books/1 \
   -d '{"rating": 4, "review": "Even better the second time."}'
 ```
 
-Send `null` for `rating` or `review` to clear them. `title`, `author`, `genre` and
-`is_read` can be left out but can't be set to `null`.
+Send `null` for `rating` or `review` to clear them. `tropes` replaces the whole list
+when sent; send `[]` to remove them all. `title`, `author`, `genre`, `is_read` and
+`tropes` can be left out but can't be set to `null`.
 
 **Delete a book**
 

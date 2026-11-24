@@ -15,6 +15,10 @@ export type Genre = (typeof GENRES)[number];
 export const MIN_RATING = 1;
 export const MAX_RATING = 5;
 
+/** Backend limits for tropes (TROPE_MAX_LENGTH, MAX_TROPES_PER_BOOK). */
+export const TROPE_MAX_LENGTH = 50;
+export const MAX_TROPES_PER_BOOK = 20;
+
 /** A stored book (BookRead). Timestamps are UTC but sent without a timezone suffix. */
 export interface Book {
   id: number;
@@ -24,6 +28,8 @@ export interface Book {
   rating: number | null;
   is_read: boolean;
   review: string | null;
+  /** Normalised by the server: trimmed, single spaces, lower case, sorted. */
+  tropes: string[];
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +42,7 @@ export interface BookCreate {
   rating?: number | null;
   is_read?: boolean;
   review?: string | null;
+  tropes?: string[];
 }
 
 /**
@@ -49,6 +56,8 @@ export interface BookUpdate {
   rating?: number | null;
   is_read?: boolean;
   review?: string | null;
+  /** Replaces the whole list; [] removes all tropes. Never null. */
+  tropes?: string[];
 }
 
 /** Query filters for GET /books. */
@@ -56,6 +65,18 @@ export interface BookFilters {
   genre?: Genre;
   is_read?: boolean;
   min_rating?: number;
+  trope?: string;
+}
+
+/** GET /tropes entry. */
+export interface TropeCount {
+  name: string;
+  book_count: number;
+}
+
+/** Same normalisation as the backend: trim, collapse spaces, lower case. */
+export function normalizeTrope(name: string): string {
+  return name.trim().split(/\s+/).join(' ').toLowerCase();
 }
 
 export function isGenre(value: unknown): value is Genre {

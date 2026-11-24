@@ -7,13 +7,23 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
-from app.models import Book, utcnow
-from app.schemas import BookCreate, BookRead, BookUpdate, ErrorResponse, Genre, HealthResponse
+from app.models import Book, Trope, book_tropes, utcnow
+from app.schemas import (
+    TROPE_MAX_LENGTH,
+    BookCreate,
+    BookRead,
+    BookUpdate,
+    ErrorResponse,
+    Genre,
+    HealthResponse,
+    TropeCount,
+    normalize_trope,
+)
 
 BOOK_NOT_FOUND = "Book not found"
 DATABASE_UNAVAILABLE = "Database unavailable"
@@ -68,6 +78,22 @@ def get_book_or_404(db: Session, book_id: int) -> Book:
     return book
 
 
+def get_or_create_tropes(db: Session, names: list[str]) -> list[Trope]:
+    """Return Trope rows for already-normalised names, creating missing ones."""
+    if not names:
+        return []
+    existing = {t.name: t for t in db.scalars(select(Trope).where(Trope.name.in_(names)))}
+    tropes = []
+    for name in names:
+        trope = existing.get(name)
+        if trope is None:
+            trope = Trope(name=name)
+            db.add(trope)
+            existing[name] = trope
+        tropes.append(trope)
+    return tropes
+
+
 @app.get(
     "/health",
     response_model=HealthResponse,
@@ -86,7 +112,8 @@ def health(db: Session = Depends(get_db)) -> HealthResponse:
 
 @app.post("/books", response_model=BookRead, status_code=status.HTTP_201_CREATED)
 def create_book(payload: BookCreate, db: Session = Depends(get_db)) -> Book:
-    book = Book(**payload.model_dump())
+    book = Book(**payload.model_dump(exclude={"tropes"}))
+    book.tropes = get_or_create_tropes(db, payload.tropes)
     db.add(book)
     db.commit()
     db.refresh(book)
@@ -98,6 +125,12 @@ def list_books(
     genre: Genre | None = None,
     is_read: bool | None = None,
     min_rating: int | None = Query(default=None, ge=1, le=5),
+    trope: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=TROPE_MAX_LENGTH,
+        description="Only books with this trope (case-insensitive).",
+    ),
     db: Session = Depends(get_db),
 ) -> list[Book]:
     """List books, optionally filtered. Filters combine with AND."""
@@ -109,7 +142,21 @@ def list_books(
     if min_rating is not None:
         # In SQL, NULL >= n is never true, so unrated books are excluded here.
         query = query.where(Book.rating >= min_rating)
+    if trope is not None:
+        query = query.where(Book.tropes.any(Trope.name == normalize_trope(trope)))
     return list(db.scalars(query))
+
+
+@app.get("/tropes", response_model=list[TropeCount])
+def list_tropes(db: Session = Depends(get_db)) -> list[TropeCount]:
+    """Every trope used by at least one book, with its book count, sorted by name."""
+    rows = db.execute(
+        select(Trope.name, func.count(book_tropes.c.book_id))
+        .join(book_tropes, book_tropes.c.trope_id == Trope.id)
+        .group_by(Trope.id)
+        .order_by(Trope.name)
+    )
+    return [TropeCount(name=name, book_count=count) for name, count in rows]
 
 
 @app.get("/books/{book_id}", response_model=BookRead, responses=NOT_FOUND_RESPONSE)
@@ -121,7 +168,10 @@ def get_book(book_id: int, db: Session = Depends(get_db)) -> Book:
 def update_book(book_id: int, payload: BookUpdate, db: Session = Depends(get_db)) -> Book:
     """Partially update a book: only fields present in the request body change."""
     book = get_book_or_404(db, book_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    if "tropes" in changes:
+        book.tropes = get_or_create_tropes(db, changes.pop("tropes"))
+    for field, value in changes.items():
         setattr(book, field, value)
     # Set explicitly so an empty body `{}` still counts as an update.
     book.updated_at = utcnow()

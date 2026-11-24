@@ -15,6 +15,7 @@ export const mocked = {
   createBook: vi.mocked(api.createBook),
   updateBook: vi.mocked(api.updateBook),
   deleteBook: vi.mocked(api.deleteBook),
+  listTropes: vi.mocked(api.listTropes),
 };
 
 /** A FastAPI-shaped 422, exactly as the real backend returns it. */

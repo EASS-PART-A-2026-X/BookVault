@@ -10,5 +10,7 @@ export default async function mockApiModule() {
     createBook: vi.fn(),
     updateBook: vi.fn(),
     deleteBook: vi.fn(),
+    // Pages load trope suggestions; default to none so tests needn't care.
+    listTropes: vi.fn(async () => []),
   };
 }

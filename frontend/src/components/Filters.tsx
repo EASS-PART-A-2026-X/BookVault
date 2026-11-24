@@ -1,4 +1,4 @@
-import { GENRES, MAX_RATING, MIN_RATING, isGenre } from '../types';
+import { GENRES, MAX_RATING, MIN_RATING, isGenre, type TropeCount } from '../types';
 import type { FilterState, ReadFilter } from '../lib/filters';
 
 interface Props {
@@ -6,11 +6,19 @@ interface Props {
   onChange: (patch: Partial<FilterState>) => void;
   onClear: () => void;
   isFiltered: boolean;
+  /** Tropes in use, for the trope dropdown. */
+  tropes: TropeCount[];
 }
 
 const RATINGS = Array.from({ length: MAX_RATING - MIN_RATING + 1 }, (_, i) => i + MIN_RATING);
 
-export function Filters({ value, onChange, onClear, isFiltered }: Props) {
+export function Filters({ value, onChange, onClear, isFiltered, tropes }: Props) {
+  // Keep a trope from the URL selectable even if no book uses it (any more).
+  const tropeOptions =
+    value.trope && !tropes.some((t) => t.name === value.trope)
+      ? [...tropes, { name: value.trope, book_count: 0 }]
+      : tropes;
+
   return (
     <form
       className="filters"
@@ -58,6 +66,22 @@ export function Filters({ value, onChange, onClear, isFiltered }: Props) {
           {RATINGS.map((r) => (
             <option key={r} value={r}>
               {'★'.repeat(r)} {r}+
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="filter-trope">Trope</label>
+        <select
+          id="filter-trope"
+          value={value.trope}
+          onChange={(e) => onChange({ trope: e.target.value })}
+        >
+          <option value="">All tropes</option>
+          {tropeOptions.map((t) => (
+            <option key={t.name} value={t.name}>
+              {t.name} ({t.book_count})
             </option>
           ))}
         </select>

@@ -4,7 +4,7 @@
  *   1. open the app            5. open it, mark as read, give it 5 stars
  *   2. add a book              6. try an invalid action -> error message shown
  *   3. see it in the list      7. delete it -> confirm it's gone
- *   4. filter by its genre
+ *   4. filter by its genre (and by trope)
  * Every step attaches a screenshot to the HTML report.
  */
 import { expect, test, type Page } from '@playwright/test';
@@ -15,10 +15,18 @@ const BOOK = {
   author: 'Ursula K. Le Guin',
   genre: 'Fantasy',
   review: 'Winter, loyalty, and a planet without fixed gender.',
+  tropes: ['Political Intrigue', 'slow burn'],
 };
 
 /** A book in a different genre, so the genre filter has something to hide. */
-const OTHER = { title: 'Dune', author: 'Frank Herbert', genre: 'Sci-Fi', rating: 4, is_read: true };
+const OTHER = {
+  title: 'Dune',
+  author: 'Frank Herbert',
+  genre: 'Sci-Fi',
+  rating: 4,
+  is_read: true,
+  tropes: ['chosen one', 'slow burn'],
+};
 
 async function snap(page: Page, name: string) {
   await test
@@ -62,6 +70,14 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     await page.getByLabel('Author').fill(BOOK.author);
     await page.getByLabel('Genre').selectOption(BOOK.genre);
     await page.getByLabel(/^Review/).fill(BOOK.review);
+    const tropeInput = page.getByLabel(/^Tropes/);
+    for (const trope of BOOK.tropes) {
+      await tropeInput.fill(trope);
+      await tropeInput.press('Enter');
+    }
+    await expect(page.getByRole('list', { name: 'Chosen tropes' })).toContainText(
+      'political intrigue',
+    );
     await snap(page, '2a-add-form-filled');
 
     const created = page.waitForResponse(
@@ -84,6 +100,8 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     await expect(ours).toContainText(BOOK.genre);
     await expect(ours).toContainText('Unread');
     await expect(ours.getByRole('img', { name: 'Not rated' })).toBeVisible();
+    // Tropes were saved normalised (lower case).
+    await expect(ours.getByRole('list', { name: 'Tropes' })).toHaveText(/political intrigue/);
     await expect(page.getByText('2 books')).toBeVisible();
     await snap(page, '3-in-list');
   });
@@ -100,7 +118,24 @@ test('add, find, filter, update, reject invalid input and delete a book', async 
     await expect(page.getByRole('search').getByLabel('Genre')).toHaveValue(BOOK.genre);
     await expect(card(page, BOOK.title)).toBeVisible();
     await expect(page.getByRole('link', { name: OTHER.title, exact: true })).toHaveCount(0);
-    await snap(page, '4-filtered-by-genre');
+    await snap(page, '4a-filtered-by-genre');
+
+    // Search by trope: a shared trope finds both books, a unique one only ours.
+    const search = page.getByRole('search');
+    await search.getByLabel('Genre').selectOption('');
+    await search.getByLabel('Trope').selectOption('slow burn');
+    await expect(page).toHaveURL(/[?&]trope=slow\+burn\b/);
+    await expect(page.getByText('2 books')).toBeVisible();
+    await search.getByLabel('Trope').selectOption('political intrigue');
+    await expect(page.getByText('1 book', { exact: true })).toBeVisible();
+    await expect(card(page, BOOK.title)).toBeVisible();
+    await expect(page.getByRole('link', { name: OTHER.title, exact: true })).toHaveCount(0);
+    await snap(page, '4b-filtered-by-trope');
+
+    // Back to the genre filter for the rest of the flow.
+    await search.getByLabel('Trope').selectOption('');
+    await search.getByLabel('Genre').selectOption(BOOK.genre);
+    await expect(page.getByText('1 book', { exact: true })).toBeVisible();
   });
 
   await test.step('5. open it, mark it as read and give it 5 stars', async () => {

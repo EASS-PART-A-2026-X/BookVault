@@ -292,6 +292,121 @@ def test_404_documented_in_openapi(client: TestClient) -> None:
     assert error_schema["properties"]["detail"]["type"] == "string"
 
 
+# ------------------------------------------------------------------------- Tropes
+
+
+def test_new_book_has_no_tropes_by_default(client: TestClient) -> None:
+    assert create_book(client)["tropes"] == []
+
+
+def test_create_with_tropes_normalises_and_dedupes(client: TestClient) -> None:
+    book = create_book(
+        client,
+        tropes=["  Enemies   to Lovers ", "found family", "enemies to lovers", "FOUND FAMILY"],
+    )
+    assert book["tropes"] == ["enemies to lovers", "found family"]
+    assert client.get(f"/books/{book['id']}").json()["tropes"] == [
+        "enemies to lovers",
+        "found family",
+    ]
+
+
+def test_tropes_are_shared_between_books(client: TestClient) -> None:
+    create_book(client, title="A", tropes=["Slow Burn"])
+    create_book(client, title="B", tropes=["slow burn", "chosen one"])
+    assert client.get("/tropes").json() == [
+        {"name": "chosen one", "book_count": 1},
+        {"name": "slow burn", "book_count": 2},
+    ]
+
+
+def test_update_replaces_tropes(client: TestClient) -> None:
+    book = create_book(client, tropes=["slow burn", "chosen one"])
+    response = client.put(f"/books/{book['id']}", json={"tropes": ["Found Family"]})
+    assert response.status_code == 200
+    assert response.json()["tropes"] == ["found family"]
+
+
+def test_update_with_empty_list_clears_tropes(client: TestClient) -> None:
+    book = create_book(client, tropes=["slow burn"])
+    response = client.put(f"/books/{book['id']}", json={"tropes": []})
+    assert response.json()["tropes"] == []
+
+
+def test_update_without_tropes_keeps_them(client: TestClient) -> None:
+    book = create_book(client, tropes=["slow burn"])
+    response = client.put(f"/books/{book['id']}", json={"rating": 2})
+    assert response.json()["tropes"] == ["slow burn"]
+
+
+def test_update_null_tropes_rejected(client: TestClient) -> None:
+    book = create_book(client, tropes=["slow burn"])
+    response = client.put(f"/books/{book['id']}", json={"tropes": None})
+    assert response.status_code == 422
+    assert "tropes cannot be null" in response.text
+
+
+@pytest.mark.parametrize(
+    ("tropes", "error_type"),
+    [
+        (["   "], "string_too_short"),
+        (["x" * 51], "string_too_long"),
+        ([f"trope {i}" for i in range(21)], "too_long"),
+        ("slow burn", "list_type"),
+        ([3], "string_type"),
+    ],
+    ids=["blank", "too-long-name", "too-many", "not-a-list", "not-a-string"],
+)
+def test_invalid_tropes_rejected(client: TestClient, tropes: Any, error_type: str) -> None:
+    response = client.post("/books", json={**VALID_BOOK, "tropes": tropes})
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail[0]["type"] == error_type
+    assert detail[0]["loc"][:2] == ["body", "tropes"]
+
+
+def test_filter_by_trope_is_case_and_space_insensitive(client: TestClient) -> None:
+    create_book(client, title="Pride", tropes=["enemies to lovers"])
+    create_book(client, title="Emma", tropes=["matchmaking"])
+    create_book(client, title="Plain")
+    assert titles(client.get("/books", params={"trope": "Enemies  To Lovers"})) == ["Pride"]
+    assert titles(client.get("/books", params={"trope": "nobody uses this"})) == []
+
+
+def test_trope_filter_combines_with_other_filters(client: TestClient) -> None:
+    create_book(client, title="A", genre="Romance", is_read=True, tropes=["slow burn"])
+    create_book(client, title="B", genre="Fantasy", is_read=True, tropes=["slow burn"])
+    create_book(client, title="C", genre="Romance", is_read=False, tropes=["slow burn"])
+    response = client.get(
+        "/books", params={"trope": "slow burn", "genre": "Romance", "is_read": True}
+    )
+    assert titles(response) == ["A"]
+
+
+@pytest.mark.parametrize("trope", ["", "x" * 51])
+def test_invalid_trope_filter_rejected(client: TestClient, trope: str) -> None:
+    assert client.get("/books", params={"trope": trope}).status_code == 422
+
+
+def test_tropes_list_ignores_unused_tropes(client: TestClient) -> None:
+    book = create_book(client, tropes=["slow burn"])
+    create_book(client, title="Other", tropes=["heist"])
+    client.put(f"/books/{book['id']}", json={"tropes": []})
+    assert client.get("/tropes").json() == [{"name": "heist", "book_count": 1}]
+
+
+def test_deleting_a_book_releases_its_tropes(client: TestClient) -> None:
+    book = create_book(client, tropes=["slow burn"])
+    assert client.delete(f"/books/{book['id']}").status_code == 204
+    assert client.get("/tropes").json() == []
+    # The trope can be used again afterwards.
+    assert create_book(client, tropes=["slow burn"])["tropes"] == ["slow burn"]
+
+
+def test_tropes_empty_when_no_books(client: TestClient) -> None:
+    assert client.get("/tropes").json() == []
+
+
 # ------------------------------------------------------------------------- Health
 
 

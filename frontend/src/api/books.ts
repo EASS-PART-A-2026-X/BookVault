@@ -2,7 +2,7 @@
  * The only module that talks to the Book Vault API. Everything else imports these
  * functions and error classes, so components never call fetch directly.
  */
-import type { Book, BookCreate, BookFilters, BookUpdate } from '../types';
+import type { Book, BookCreate, BookFilters, BookUpdate, TropeCount } from '../types';
 
 const DEFAULT_API_URL = 'http://localhost:8000';
 
@@ -120,12 +120,18 @@ export function toQueryString(filters: BookFilters = {}): string {
   if (filters.genre) params.set('genre', filters.genre);
   if (filters.is_read !== undefined) params.set('is_read', String(filters.is_read));
   if (filters.min_rating !== undefined) params.set('min_rating', String(filters.min_rating));
+  if (filters.trope) params.set('trope', filters.trope);
   const query = params.toString();
   return query ? `?${query}` : '';
 }
 
 export function listBooks(filters: BookFilters = {}, signal?: AbortSignal): Promise<Book[]> {
   return request<Book[]>(`/books${toQueryString(filters)}`, { signal });
+}
+
+/** Tropes used by at least one book, sorted by name. */
+export function listTropes(signal?: AbortSignal): Promise<TropeCount[]> {
+  return request<TropeCount[]>('/tropes', { signal });
 }
 
 export function getBook(id: number, signal?: AbortSignal): Promise<Book> {

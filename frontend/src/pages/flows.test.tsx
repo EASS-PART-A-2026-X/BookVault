@@ -91,6 +91,7 @@ describe('add book', () => {
       rating: 4,
       is_read: false,
       review: null,
+      tropes: [],
     });
     expect(await screen.findByRole('link', { name: 'Dune' })).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/);

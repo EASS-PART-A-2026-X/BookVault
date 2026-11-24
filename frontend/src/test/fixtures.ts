@@ -12,6 +12,7 @@ export function makeBook(overrides: Partial<Book> = {}): Book {
     rating: null,
     is_read: false,
     review: null,
+    tropes: [],
     created_at: '2026-11-24T10:00:00.000000',
     updated_at: '2026-11-24T10:00:00.000000',
     ...overrides,

@@ -1,5 +1,5 @@
 /** Form state for the add/edit book form, and conversion to API payloads. */
-import type { Book, BookCreate, BookUpdate, Genre } from '../types';
+import { normalizeTrope, type Book, type BookCreate, type BookUpdate, type Genre } from '../types';
 
 export interface BookFormValues {
   title: string;
@@ -8,6 +8,7 @@ export interface BookFormValues {
   rating: number | null;
   is_read: boolean;
   review: string;
+  tropes: string[];
 }
 
 export const EMPTY_FORM: BookFormValues = {
@@ -17,6 +18,7 @@ export const EMPTY_FORM: BookFormValues = {
   rating: null,
   is_read: false,
   review: '',
+  tropes: [],
 };
 
 export function valuesFromBook(book: Book): BookFormValues {
@@ -27,6 +29,7 @@ export function valuesFromBook(book: Book): BookFormValues {
     rating: book.rating,
     is_read: book.is_read,
     review: book.review ?? '',
+    tropes: book.tropes,
   };
 }
 
@@ -43,9 +46,17 @@ export function toCreatePayload(values: BookFormValues): BookCreate {
     rating: values.rating,
     is_read: values.is_read,
     review: review === '' ? null : review,
+    tropes: [...new Set(values.tropes.map(normalizeTrope).filter(Boolean))],
   };
 }
 
 export function toUpdatePayload(values: BookFormValues): BookUpdate {
   return toCreatePayload(values);
+}
+
+/** Add a typed trope to the list: normalised, ignored if blank or already there. */
+export function addTrope(tropes: string[], draft: string): string[] {
+  const trope = normalizeTrope(draft);
+  if (!trope || tropes.includes(trope)) return tropes;
+  return [...tropes, trope];
 }

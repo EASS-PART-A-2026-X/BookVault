@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { ValidationError } from '../api/books';
-import type { BookFormValues } from '../lib/bookForm';
+import { addTrope, type BookFormValues } from '../lib/bookForm';
 import { describeError, mapValidationIssues } from '../lib/errors';
 import {
   firstInvalidField,
@@ -12,6 +12,7 @@ import {
 import { GENRES, isGenre } from '../types';
 import { Spinner } from './Spinner';
 import { StarInput } from './StarRating';
+import { TropeInput } from './TropeInput';
 
 interface Props {
   initialValues: BookFormValues;
@@ -21,6 +22,8 @@ interface Props {
   /** Resolve on success; throw to keep the form open and show the error. */
   onSubmit: (values: BookFormValues) => Promise<void>;
   onCancel?: () => void;
+  /** Tropes already used in the vault, suggested while typing. */
+  tropeSuggestions?: string[];
 }
 
 /**
@@ -36,8 +39,11 @@ export function BookForm({
   submittingLabel = 'Saving…',
   onSubmit,
   onCancel,
+  tropeSuggestions = [],
 }: Props) {
   const [values, setValues] = useState(initialValues);
+  // A trope typed but not yet added; included on submit so it isn't lost.
+  const [tropeDraft, setTropeDraft] = useState('');
   // Client and server errors are kept apart: leaving a field re-runs the client
   // check, which must not wipe a 422 message the server gave for that field.
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -85,8 +91,14 @@ export function BookForm({
     event.preventDefault();
     if (submittingRef.current) return;
 
-    const clientErrors = validateBook(values);
-    setTouched({ title: true, author: true, genre: true, rating: true });
+    const submitted: BookFormValues = { ...values, tropes: addTrope(values.tropes, tropeDraft) };
+    if (submitted.tropes !== values.tropes) {
+      setValues(submitted);
+      setTropeDraft('');
+    }
+
+    const clientErrors = validateBook(submitted);
+    setTouched({ title: true, author: true, genre: true, tropes: true, rating: true });
     setErrors(clientErrors);
     setServerErrors({});
     const first = firstInvalidField(clientErrors);
@@ -100,7 +112,7 @@ export function BookForm({
     setSubmitting(true);
     setFormError(null);
     try {
-      await onSubmit(values);
+      await onSubmit(submitted);
     } catch (error) {
       if (error instanceof ValidationError) {
         const { fieldErrors, formErrors } = mapValidationIssues(error.issues);
@@ -233,6 +245,24 @@ export function BookForm({
             ))}
           </select>
           {fieldError('genre')}
+        </div>
+
+        <div className={shown('tropes') ? 'field field--invalid' : 'field'}>
+          <label htmlFor={id('tropes')}>
+            Tropes <span className="hint">(optional)</span>
+          </label>
+          <TropeInput
+            id={id('tropes')}
+            value={values.tropes}
+            onChange={(tropes) => update('tropes', tropes)}
+            draft={tropeDraft}
+            onDraftChange={setTropeDraft}
+            suggestions={tropeSuggestions}
+            disabled={submitting}
+            invalid={Boolean(shown('tropes'))}
+            describedBy={shown('tropes') ? errorId('tropes') : undefined}
+          />
+          {fieldError('tropes')}
         </div>
 
         <div className={shown('rating') ? 'field field--invalid' : 'field'}>

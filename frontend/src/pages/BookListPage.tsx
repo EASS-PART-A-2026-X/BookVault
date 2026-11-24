@@ -6,6 +6,7 @@ import { Filters } from '../components/Filters';
 import { Spinner } from '../components/Spinner';
 import { useBookFilters } from '../hooks/useBookFilters';
 import { useBooks } from '../hooks/useBooks';
+import { useTropes } from '../hooks/useTropes';
 
 const SKELETON_CARDS = 6;
 
@@ -13,6 +14,8 @@ export function BookListPage() {
   const { filters, apiFilters, setFilters, clearFilters, isFiltered } = useBookFilters();
   const { books, error, loading, reload } = useBooks(apiFilters);
   const { search } = useLocation();
+  // Refresh the trope dropdown whenever the list reloads.
+  const tropes = useTropes(books);
 
   const firstLoad = books === undefined && error === undefined;
   const showEmpty = !loading && error === undefined && books !== undefined && books.length === 0;
@@ -31,6 +34,7 @@ export function BookListPage() {
         onChange={setFilters}
         onClear={clearFilters}
         isFiltered={isFiltered}
+        tropes={tropes}
       />
 
       {error !== undefined && <ErrorBanner error={error} onRetry={reload} retrying={loading} />}
@@ -69,7 +73,7 @@ export function BookListPage() {
             </button>
           }
         >
-          Try a different genre, status or minimum rating.
+          Try a different genre, status, minimum rating or trope.
         </EmptyState>
       )}
 

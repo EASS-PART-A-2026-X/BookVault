@@ -7,6 +7,7 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { Spinner } from '../components/Spinner';
 import { StarInput } from '../components/StarRating';
 import { useBook } from '../hooks/useBook';
+import { useTropes } from '../hooks/useTropes';
 import { toUpdatePayload, valuesFromBook } from '../lib/bookForm';
 import { isNotFound } from '../lib/errors';
 import { formatDate } from '../lib/format';
@@ -91,6 +92,7 @@ function BookView({ book, onChange, onGone, backTo }: ViewProps) {
   const navigate = useNavigate();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
+  const tropes = useTropes(editing);
   const [quickSaving, setQuickSaving] = useState<QuickAction | null>(null);
   const [quickError, setQuickError] = useState<unknown>(undefined);
   const [lastQuick, setLastQuick] = useState<{ action: QuickAction; patch: BookUpdate } | null>(
@@ -177,6 +179,7 @@ function BookView({ book, onChange, onGone, backTo }: ViewProps) {
               toast.success('Changes saved.');
             }}
             onCancel={() => setEditing(false)}
+            tropeSuggestions={tropes.map((t) => t.name)}
           />
         </div>
       ) : (
@@ -225,6 +228,29 @@ function BookView({ book, onChange, onGone, backTo }: ViewProps) {
               />
               {quickSaving === 'rating' && <Spinner label="Saving rating…" inline />}
             </div>
+          </section>
+
+          <section className="card" aria-labelledby="tropes-heading">
+            <h2 id="tropes-heading" className="card__title">
+              Tropes
+            </h2>
+            {book.tropes.length > 0 ? (
+              <ul className="chips" aria-label="Tropes">
+                {book.tropes.map((trope) => (
+                  <li key={trope}>
+                    <Link
+                      to={`/?trope=${encodeURIComponent(trope)}`}
+                      className="chip chip--link"
+                      title={`Show all books with “${trope}”`}
+                    >
+                      {trope}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="muted">No tropes yet. Add some with Edit.</p>
+            )}
           </section>
 
           <section className="card" aria-labelledby="review-heading">
