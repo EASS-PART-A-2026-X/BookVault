@@ -16,7 +16,11 @@ export default defineConfig({
   retries: isCI ? 1 : 0,
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+  // printSteps: show each numbered test.step in the terminal, not just the test name.
+  reporter: [
+    ['list', { printSteps: true }],
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+  ],
   outputDir: 'test-results',
   use: {
     baseURL: WEB_URL,

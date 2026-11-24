@@ -1,0 +1,116 @@
+# Backend: lint, format check, tests with coverage (book-vault/)
+# Recorded 2026-11-24 15:45 UTC on commit 8150903 + Phase 6 working tree (macOS, Node v22.23.5, uv 0.13.5)
+
+$ uv run ruff check .
+All checks passed!
+[exit code: 0]
+
+$ uv run ruff format --check .
+11 files already formatted
+[exit code: 0]
+
+$ uv run pytest -v --cov=app --cov-report=term-missing
+============================= test session starts ==============================
+platform darwin -- Python 3.11.3, pytest-9.1.1, pluggy-1.7.0 -- /Users/galamshalem/project/book-vault/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/galamshalem/project/book-vault
+configfile: pyproject.toml
+testpaths: tests
+plugins: cov-7.1.0, anyio-4.15.1
+collecting ... collected 79 items
+
+tests/test_main.py::test_create_book_returns_201_with_generated_fields PASSED [  1%]
+tests/test_main.py::test_create_book_applies_defaults_and_strips_whitespace PASSED [  2%]
+tests/test_main.py::test_rating_and_review_allowed_when_unread PASSED    [  3%]
+tests/test_main.py::test_list_books_empty PASSED                         [  5%]
+tests/test_main.py::test_get_book_by_id PASSED                           [  6%]
+tests/test_main.py::test_update_book_is_partial_and_refreshes_updated_at PASSED [  7%]
+tests/test_main.py::test_update_can_clear_rating_and_review PASSED       [  8%]
+tests/test_main.py::test_delete_book PASSED                              [ 10%]
+tests/test_main.py::test_full_crud_lifecycle PASSED                      [ 11%]
+tests/test_main.py::test_filter_by_genre PASSED                          [ 12%]
+tests/test_main.py::test_filter_by_is_read PASSED                        [ 13%]
+tests/test_main.py::test_filter_by_min_rating_excludes_unrated PASSED    [ 15%]
+tests/test_main.py::test_filters_combined PASSED                         [ 16%]
+tests/test_main.py::test_rating_boundaries_accepted[1] PASSED            [ 17%]
+tests/test_main.py::test_rating_boundaries_accepted[5] PASSED            [ 18%]
+tests/test_main.py::test_rating_out_of_range_rejected[0] PASSED          [ 20%]
+tests/test_main.py::test_rating_out_of_range_rejected[6] PASSED          [ 21%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[empty-title] PASSED [ 22%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[empty-author] PASSED [ 24%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[whitespace-title] PASSED [ 25%]
+tests/test_main.py::test_empty_or_whitespace_title_author_rejected[whitespace-author] PASSED [ 26%]
+tests/test_main.py::test_invalid_genre_rejected PASSED                   [ 27%]
+tests/test_main.py::test_missing_required_field_rejected[title] PASSED   [ 29%]
+tests/test_main.py::test_missing_required_field_rejected[author] PASSED  [ 30%]
+tests/test_main.py::test_missing_required_field_rejected[genre] PASSED   [ 31%]
+tests/test_main.py::test_empty_body_rejected PASSED                      [ 32%]
+tests/test_main.py::test_invalid_rating_via_put_rejected[0] PASSED       [ 34%]
+tests/test_main.py::test_invalid_rating_via_put_rejected[6] PASSED       [ 35%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[blank-title] PASSED [ 36%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[empty-author] PASSED [ 37%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[bad-genre] PASSED [ 39%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[null-title] PASSED [ 40%]
+tests/test_main.py::test_invalid_fields_via_put_rejected[null-is_read] PASSED [ 41%]
+tests/test_main.py::test_min_rating_filter_out_of_range_rejected[0] PASSED [ 43%]
+tests/test_main.py::test_min_rating_filter_out_of_range_rejected[6] PASSED [ 44%]
+tests/test_main.py::test_invalid_genre_filter_rejected PASSED            [ 45%]
+tests/test_main.py::test_get_missing_book_returns_404 PASSED             [ 46%]
+tests/test_main.py::test_update_missing_book_returns_404 PASSED          [ 48%]
+tests/test_main.py::test_delete_missing_book_returns_404 PASSED          [ 49%]
+tests/test_main.py::test_404_documented_in_openapi PASSED                [ 50%]
+tests/test_main.py::test_new_book_has_no_tropes_by_default PASSED        [ 51%]
+tests/test_main.py::test_create_with_tropes_normalises_and_dedupes PASSED [ 53%]
+tests/test_main.py::test_tropes_are_shared_between_books PASSED          [ 54%]
+tests/test_main.py::test_update_replaces_tropes PASSED                   [ 55%]
+tests/test_main.py::test_update_with_empty_list_clears_tropes PASSED     [ 56%]
+tests/test_main.py::test_update_without_tropes_keeps_them PASSED         [ 58%]
+tests/test_main.py::test_update_null_tropes_rejected PASSED              [ 59%]
+tests/test_main.py::test_invalid_tropes_rejected[blank] PASSED           [ 60%]
+tests/test_main.py::test_invalid_tropes_rejected[too-long-name] PASSED   [ 62%]
+tests/test_main.py::test_invalid_tropes_rejected[too-many] PASSED        [ 63%]
+tests/test_main.py::test_invalid_tropes_rejected[not-a-list] PASSED      [ 64%]
+tests/test_main.py::test_invalid_tropes_rejected[not-a-string] PASSED    [ 65%]
+tests/test_main.py::test_filter_by_trope_is_case_and_space_insensitive PASSED [ 67%]
+tests/test_main.py::test_trope_filter_combines_with_other_filters PASSED [ 68%]
+tests/test_main.py::test_invalid_trope_filter_rejected[] PASSED          [ 69%]
+tests/test_main.py::test_invalid_trope_filter_rejected[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx] PASSED [ 70%]
+tests/test_main.py::test_tropes_list_ignores_unused_tropes PASSED        [ 72%]
+tests/test_main.py::test_deleting_a_book_releases_its_tropes PASSED      [ 73%]
+tests/test_main.py::test_tropes_empty_when_no_books PASSED               [ 74%]
+tests/test_main.py::test_health_ok PASSED                                [ 75%]
+tests/test_main.py::test_health_returns_503_when_database_fails PASSED   [ 77%]
+tests/test_main.py::test_cors_default_origin_is_vite_dev_server PASSED   [ 78%]
+tests/test_main.py::test_parse_cors_origins[single] PASSED               [ 79%]
+tests/test_main.py::test_parse_cors_origins[list-with-spaces-and-trailing-slash] PASSED [ 81%]
+tests/test_main.py::test_parse_cors_origins[empty-disables] PASSED       [ 82%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[GET] PASSED [ 83%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[POST] PASSED [ 84%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[PUT] PASSED [ 86%]
+tests/test_main.py::test_cors_preflight_allowed_for_default_origin[DELETE] PASSED [ 87%]
+tests/test_main.py::test_cors_simple_request_gets_allow_origin_header PASSED [ 88%]
+tests/test_main.py::test_cors_unknown_origin_rejected PASSED             [ 89%]
+tests/test_main.py::test_cors_origins_read_from_env_var PASSED           [ 91%]
+tests/test_main.py::test_get_db_yields_session_and_closes_it PASSED      [ 92%]
+tests/test_main.py::test_get_db_closes_session_on_error PASSED           [ 93%]
+tests/test_main.py::test_default_database_dir_is_created PASSED          [ 94%]
+tests/test_main.py::test_custom_database_url_dir_is_created PASSED       [ 96%]
+tests/test_main.py::test_in_memory_database_creates_no_dirs[sqlite://] PASSED [ 97%]
+tests/test_main.py::test_in_memory_database_creates_no_dirs[sqlite:///:memory:] PASSED [ 98%]
+tests/test_main.py::test_data_persists_across_engine_rebuild PASSED      [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.11.3-final-0 _______________
+
+Name              Stmts   Miss  Cover   Missing
+-----------------------------------------------
+app/__init__.py       0      0   100%
+app/database.py      21      0   100%
+app/main.py          96      0   100%
+app/models.py        24      0   100%
+app/schemas.py       69      0   100%
+-----------------------------------------------
+TOTAL               210      0   100%
+============================== 79 passed in 1.33s ==============================
+[exit code: 0]
+

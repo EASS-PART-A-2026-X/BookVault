@@ -1,0 +1,106 @@
+# Frontend component tests: Vitest + React Testing Library (frontend/)
+# Recorded 2026-11-24 15:45 UTC on commit 8150903 + Phase 6 working tree (macOS, Node v22.23.5, uv 0.13.5)
+
+$ npx vitest run --reporter=verbose --color=false
+
+ RUN  v5.1.1 /Users/galamshalem/project/frontend
+
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > accepts a valid book, with or without a rating 1ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > requires title, author and genre 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects a blank title/author "" (trimmed like the API) 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects a blank title/author "   " (trimmed like the API) 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects a blank title/author "\t\n" (trimmed like the API) 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects a genre outside the enum 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects rating 0 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects rating 6 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects rating 2.5 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > rejects rating -1 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > accepts rating 1 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > accepts rating 3 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > accepts rating 5 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > limits tropes to 20, each at most 50 characters 0ms
+ ✓ src/lib/validation.test.ts > validateBook (mirrors the backend schema) > finds the first invalid field in form order 0ms
+ ✓ src/lib/filters.test.ts > parseFilters > reads valid values 2ms
+ ✓ src/lib/filters.test.ts > parseFilters > ignores invalid genre=Horror 1ms
+ ✓ src/lib/filters.test.ts > parseFilters > ignores invalid status=maybe 1ms
+ ✓ src/lib/filters.test.ts > parseFilters > ignores invalid min_rating=0 1ms
+ ✓ src/lib/filters.test.ts > parseFilters > ignores invalid min_rating=6 0ms
+ ✓ src/lib/filters.test.ts > parseFilters > ignores invalid min_rating=4.5 0ms
+ ✓ src/lib/filters.test.ts > parseFilters > ignores invalid min_rating=abc 0ms
+ ✓ src/lib/filters.test.ts > trope filter > normalises the trope from the URL like the backend does 0ms
+ ✓ src/lib/filters.test.ts > trope filter > ignores a trope longer than the backend allows 1ms
+ ✓ src/lib/filters.test.ts > trope filter > is sent to the API and counts as an active filter 0ms
+ ✓ src/lib/filters.test.ts > filtersToParams / toApiFilters > round-trips through the URL and leaves out defaults 0ms
+ ✓ src/lib/filters.test.ts > filtersToParams / toApiFilters > maps to API query params 0ms
+ ✓ src/lib/filters.test.ts > filtersToParams / toApiFilters > knows when filters are active 0ms
+ ✓ src/lib/errors.test.ts > mapValidationIssues > maps body field errors to their fields 2ms
+ ✓ src/lib/errors.test.ts > mapValidationIssues > maps the model-level "X cannot be null" error to field X 1ms
+ ✓ src/lib/errors.test.ts > mapValidationIssues > keeps errors it cannot place as form-level messages 0ms
+ ✓ src/lib/errors.test.ts > mapValidationIssues > joins several messages for one field 0ms
+ ✓ src/lib/errors.test.ts > describeError > explains a network failure and offers a retry 1ms
+ ✓ src/lib/errors.test.ts > describeError > classifies 404, 5xx, 422 and unknown errors 0ms
+ ✓ src/lib/errors.test.ts > describeError > treats a proxy 502 (backend down behind nginx) as unreachable 0ms
+ ✓ src/lib/errors.test.ts > describeError > treats a proxy 504 (backend down behind nginx) as unreachable 0ms
+ ✓ src/lib/errors.test.ts > describeError > names an absolute API URL in the network message 1ms
+ ✓ src/lib/errors.test.ts > describeError > detects not-found errors 0ms
+ ✓ src/api/books.test.ts > toQueryString > is empty without filters 1ms
+ ✓ src/api/books.test.ts > toQueryString > includes every given filter, including is_read=false 1ms
+ ✓ src/api/books.test.ts > request functions > defaults to localhost:8000 0ms
+ ✓ src/api/books.test.ts > request functions > lists books with filters 3ms
+ ✓ src/api/books.test.ts > request functions > sends JSON for create and update 1ms
+ ✓ src/api/books.test.ts > request functions > handles 204 No Content on delete 0ms
+ ✓ src/api/books.test.ts > request functions > turns a 404 into an ApiError with the server message 1ms
+ ✓ src/api/books.test.ts > request functions > turns a FastAPI 422 into a ValidationError with its issues 1ms
+ ✓ src/api/books.test.ts > request functions > falls back to a generic message for non-JSON errors 1ms
+ ✓ src/api/books.test.ts > request functions > turns a failed fetch into a NetworkError 0ms
+ ✓ src/api/books.test.ts > request functions > rethrows aborts untouched 1ms
+ ✓ src/components/states.test.tsx > ErrorBoundary > shows a fallback instead of a blank page when a child crashes 64ms
+ ✓ src/components/states.test.tsx > ErrorBoundary > resets when the resetKey changes (e.g. navigating away) 6ms
+ ✓ src/pages/states.test.tsx > empty states > shows the empty-vault state with a call to action when there are no books 87ms
+ ✓ src/pages/flows.test.tsx > book list > shows each book with genre, status and rating 97ms
+ ✓ src/components/states.test.tsx > BookForm while saving > disables every control and ignores a second submit 58ms
+ ✓ src/components/BookForm.test.tsx > client-side validation > shows every problem inline, focuses the first, and does not call the API 105ms
+ ✓ src/components/BookForm.test.tsx > client-side validation > rejects whitespace-only title and author, like the backend 84ms
+ ✓ src/pages/states.test.tsx > empty states > shows a separate "no matches" state with a working clear-filters button 54ms
+ ✓ src/pages/states.test.tsx > loading state > shows a loading indicator until the list arrives 14ms
+ ✓ src/pages/states.test.tsx > network-error banner > shows a banner with Retry when the backend is unreachable, and recovers 32ms
+ ✓ src/pages/flows.test.tsx > book list > reads filters from the URL and writes changes back to it 67ms
+ ✓ src/pages/states.test.tsx > network-error banner > keeps the banner (as "Retrying…") while a retry is in flight 25ms
+ ✓ src/pages/states.test.tsx > network-error banner > explains a server error (5xx) the same way 13ms
+ ✓ src/pages/states.test.tsx > network-error banner > shows the banner on the detail page too 10ms
+ ✓ src/pages/states.test.tsx > not found > shows "Book not found" when the API returns 404 13ms
+ ✓ src/pages/states.test.tsx > not found > shows the not-found page when the book was deleted elsewhere 44ms
+ ✓ src/pages/states.test.tsx > not found > shows "Page not found" for unknown routes 5ms
+ ✓ src/components/BookForm.test.tsx > client-side validation > validates a field when it loses focus and clears the error once fixed 38ms
+ ✓ src/pages/flows.test.tsx > add book > creates the book and returns to the refreshed list 143ms
+ ✓ src/components/tropes.test.tsx > trope input > adds with Enter or comma, normalises, ignores duplicates and blanks 270ms
+ ✓ src/components/tropes.test.tsx > trope input > removes with × or Backspace on an empty input 59ms
+ ✓ src/components/BookForm.test.tsx > client-side validation > submits once everything is valid 107ms
+ ✓ src/lib/format.test.ts > parseApiDate > treats naive API timestamps as UTC 1ms
+ ✓ src/lib/format.test.ts > parseApiDate > respects an explicit offset 0ms
+ ✓ src/pages/flows.test.tsx > book detail > marks as read and rates with quick actions 60ms
+ ✓ src/pages/flows.test.tsx > book detail > edits any field 81ms
+ ✓ src/components/tropes.test.tsx > trope input > suggests tropes already in the vault, minus the chosen ones 56ms
+ ✓ src/pages/flows.test.tsx > book detail > asks in an in-app dialog before deleting 48ms
+ ✓ src/pages/flows.test.tsx > book detail > shows the not-found page for an id that cannot exist, without calling the API 5ms
+ ✓ src/components/BookForm.test.tsx > server 422 errors > shows each FastAPI detail message next to the matching field 98ms
+ ✓ src/components/BookForm.test.tsx > server 422 errors > maps the model-level "cannot be null" error and lists unplaceable ones 84ms
+ ✓ src/components/tropes.test.tsx > trope input > sends the tropes, including one typed but not yet added 183ms
+ ✓ src/components/BookForm.test.tsx > server 422 errors > shows a clear message when the server cannot be reached while saving 77ms
+ ✓ src/components/BookForm.test.tsx > regression: blur error must not swallow the Save click > pressing Save keeps focus in the field, so no blur error shifts the button 31ms
+ ✓ src/components/BookForm.test.tsx > regression: server errors survive focus moving between fields > leaving a field the server rejected does not erase its message; editing it does 90ms
+ ✓ src/components/tropes.test.tsx > trope input > shows a server 422 on tropes next to the trope field 129ms
+ ✓ src/components/tropes.test.tsx > trope input > edits the tropes of an existing book 104ms
+ ✓ src/components/tropes.test.tsx > trope display > shows up to three tropes on a card, then "+N more" 15ms
+ ✓ src/components/tropes.test.tsx > trope display > links each trope on the detail page to the filtered list 10ms
+ ✓ src/components/tropes.test.tsx > trope filter > lists tropes with counts and filters the books by the chosen one 23ms
+ ✓ src/components/tropes.test.tsx > trope filter > applies a trope from the URL (e.g. a link from a book page) 8ms
+ ✓ src/components/tropes.test.tsx > trope filter > keeps an unknown trope from the URL selectable and shows the no-match state 11ms
+
+ Test Files  10 passed (10)
+      Tests  91 passed (91)
+   Start at  17:45:49
+   Duration  2.09s (environment 56%, tests 21%, setup 17%, import 3%, transform 2%, worker 1%)
+
+[exit code: 0]
+

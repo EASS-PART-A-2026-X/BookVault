@@ -1,0 +1,149 @@
+# Docker Compose: build, health, nginx routing, backend outage, persistence across down/up (repo root)
+# Recorded 2026-11-24 15:43 UTC on commit 8150903 + uncommitted Phase 6 changes; Docker version 29.9.2, build a82e528; Docker Compose version v5.6.1
+
+$ docker compose up --build -d --wait --quiet-pull 2>&1 | grep -vE '^#|^ *=>|Building|resolve|transferring|naming|exporting|writing|unpacking' 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ Image book-vault-backend Built 
+ Image book-vault-frontend Built 
+ Container book-vault-backend-1 Running 
+ Container book-vault-frontend-1 Running 
+ Container book-vault-backend-1 Waiting 
+ Container book-vault-backend-1 Healthy 
+ Container book-vault-backend-1 Waiting 
+ Container book-vault-frontend-1 Waiting 
+ Container book-vault-backend-1 Healthy 
+ Container book-vault-frontend-1 Healthy 
+[exit code: 0]
+
+$ docker compose ps --format 'table {{.Service}}	{{.Image}}	{{.Status}}	{{.Ports}}'
+SERVICE    IMAGE                                                                     STATUS                    PORTS
+backend    sha256:fd9181f790839c6fa9467c73692b7a86867ca05bdb273fb83c8159c505d418ea   Up 49 seconds (healthy)   8000/tcp
+frontend   sha256:2c13c7ab62b09e06128c02612a443572a893d8ba9bfe3c2e46d88bbd1a7c7377   Up 2 minutes (healthy)    0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+[exit code: 0]
+
+$ docker volume ls --filter name=book-vault
+DRIVER    VOLUME NAME
+local     book-vault_book-vault-data
+[exit code: 0]
+
+## Routes through nginx on :8080 (SPA fallback for client routes, /api proxied to the backend)
+$ for u in / /books/new /books/12 /api/health /api/books/9999 /api/docs; do printf "%-18s " $u; curl -s -o /dev/null -w "%{http_code} %{content_type}
+" http://localhost:8080$u; done
+/                  200 text/html
+/books/new         200 text/html
+/books/12          200 text/html
+/api/health        200 application/json
+/api/books/9999    404 application/json
+/api/docs          200 text/html; charset=utf-8
+[exit code: 0]
+
+$ curl -s 'http://localhost:8080/api/books?trope=found%20family' | python3 -c 'import json,sys; [print(b["id"], b["title"], b["tropes"]) for b in json.load(sys.stdin)]'
+3 The Name of the Wind ['chosen one', 'found family', 'magic school']
+8 The Hobbit ['found family', 'quest']
+[exit code: 0]
+
+## Backend outage: nginx answers 502 with the API's JSON error shape (the UI shows its 'Can't reach the server' banner)
+$ docker compose stop backend
+ Container book-vault-backend-1 Stopping 
+ Container book-vault-backend-1 Stopped 
+[exit code: 0]
+
+$ curl -s -w '  [HTTP %{http_code}]
+' http://localhost:8080/api/books
+{"detail":"Backend unavailable"}  [HTTP 502]
+[exit code: 0]
+
+$ docker compose start backend && for i in $(seq 1 30); do [ "$(docker inspect -f '{{.State.Health.Status}}' book-vault-backend-1)" = healthy ] && break; sleep 1; done; docker compose ps --format '{{.Service}}: {{.Status}}'
+ Container book-vault-backend-1 Starting 
+ Container book-vault-backend-1 Started 
+backend: Up 5 seconds (healthy)
+frontend: Up 2 minutes (healthy)
+[exit code: 0]
+
+## Persistence: data survives removing and recreating the containers
+$ curl -s http://localhost:8080/api/books | python3 -c 'import json,sys; b=json.load(sys.stdin); print(len(b), "books:", [x["title"] for x in b])'
+8 books: ['Dune', 'Pride and Prejudice', 'The Name of the Wind', 'Gone Girl', 'The Murder of Roger Ackroyd', 'Sapiens', 'Wolf Hall', 'The Hobbit']
+[exit code: 0]
+
+$ docker compose down
+ Container book-vault-frontend-1 Stopping 
+ Container book-vault-frontend-1 Stopped 
+ Container book-vault-frontend-1 Removing 
+ Container book-vault-frontend-1 Removed 
+ Container book-vault-backend-1 Stopping 
+ Container book-vault-backend-1 Stopped 
+ Container book-vault-backend-1 Removing 
+ Container book-vault-backend-1 Removed 
+ Network book-vault_default Removing 
+ Network book-vault_default Removed 
+[exit code: 0]
+
+$ docker compose ps -a --format '{{.Name}}' | wc -l   # containers left
+       0
+[exit code: 0]
+
+$ docker volume ls --filter name=book-vault --format '{{.Name}}'   # volume kept
+book-vault_book-vault-data
+[exit code: 0]
+
+$ docker compose up -d --wait
+ Network book-vault_default Creating 
+ Network book-vault_default Creating 
+ Network book-vault_default Created 
+ Network book-vault_default Created 
+ Container book-vault-backend-1 Creating 
+ Container book-vault-backend-1 Created 
+ Container book-vault-frontend-1 Creating 
+ Container book-vault-frontend-1 Created 
+ Container book-vault-backend-1 Starting 
+ Container book-vault-backend-1 Started 
+ Container book-vault-backend-1 Waiting 
+ Container book-vault-backend-1 Healthy 
+ Container book-vault-frontend-1 Starting 
+ Container book-vault-frontend-1 Started 
+ Container book-vault-frontend-1 Waiting 
+ Container book-vault-backend-1 Waiting 
+ Container book-vault-backend-1 Healthy 
+ Container book-vault-frontend-1 Healthy 
+[exit code: 0]
+
+$ curl -s http://localhost:8080/api/books | python3 -c 'import json,sys; b=json.load(sys.stdin); print(len(b), "books:", [x["title"] for x in b])'
+8 books: ['Dune', 'Pride and Prejudice', 'The Name of the Wind', 'Gone Girl', 'The Murder of Roger Ackroyd', 'Sapiens', 'Wolf Hall', 'The Hobbit']
+[exit code: 0]
+

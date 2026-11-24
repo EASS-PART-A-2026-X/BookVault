@@ -1430,3 +1430,13 @@ a.chip--link:hover {
     padding: 6px 4px;
   }
 }
+
+/* Toasts float over the page: let clicks fall through to whatever is underneath
+   (e.g. the Edit button right after a quick rating). Only the × stays clickable. */
+.toast {
+  pointer-events: none;
+}
+
+.toast__close {
+  pointer-events: auto;
+}
