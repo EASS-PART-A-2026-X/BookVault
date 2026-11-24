@@ -42,6 +42,7 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 | `GET`    | `/books/{book_id}` | Get one book                      | `200`   | `404`      |
 | `PUT`    | `/books/{book_id}` | Partially update a book           | `200`   | `404`, `422` |
 | `DELETE` | `/books/{book_id}` | Delete a book                     | `204`   | `404`      |
+| `GET`    | `/health`          | Health check (also pings the DB)  | `200`   | `503`      |
 
 ### Examples
 
@@ -132,6 +133,18 @@ location, set `DATABASE_URL`:
 DATABASE_URL=sqlite:///./my-books.db uv run uvicorn app.main:app --reload
 ```
 
+### Configuration
+
+| Variable       | Default                    | Purpose                                                  |
+|----------------|----------------------------|----------------------------------------------------------|
+| `DATABASE_URL` | `sqlite:///./data/books.db` | Where the SQLite database lives                          |
+| `CORS_ORIGINS` | `http://localhost:5173`    | Comma-separated browser origins allowed to call the API (the Vite dev server by default). Setting it replaces the default; an empty value allows none |
+
+```bash
+CORS_ORIGINS="http://localhost:5173,http://localhost:4173" uv run uvicorn app.main:app --reload
+curl http://localhost:8000/health        # {"status":"ok"}, or 503 if the database is unreachable
+```
+
 ## Running the tests
 
 ```bash
@@ -186,7 +199,7 @@ stage, and the runtime stage is `python:3.11-slim` running as a non-root user.
 [docs/proof/PROOF.md](docs/proof/PROOF.md) collects evidence that the project works.
 It includes:
 
-- a lint and test run (47 tests, all passing)
+- a lint and test run (all tests passing)
 - the test coverage report (100%)
 - a live curl session, including a server restart
 - Swagger UI screenshots of real requests

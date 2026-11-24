@@ -1,18 +1,25 @@
 """FastAPI application: Personal Book Vault & Reading Tracker endpoints."""
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
-from sqlalchemy import select
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine, get_db
 from app.models import Book, utcnow
-from app.schemas import BookCreate, BookRead, BookUpdate, ErrorResponse, Genre
+from app.schemas import BookCreate, BookRead, BookUpdate, ErrorResponse, Genre, HealthResponse
 
 BOOK_NOT_FOUND = "Book not found"
+DATABASE_UNAVAILABLE = "Database unavailable"
+
+# Browser origins allowed to call the API (the Vite dev server by default).
+DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 
 # Declared on every /books/{book_id} route so the 404 appears in the OpenAPI docs.
 NOT_FOUND_RESPONSE: dict[int | str, dict[str, Any]] = {
@@ -35,12 +42,46 @@ app = FastAPI(
 )
 
 
+def parse_cors_origins(value: str | None) -> list[str]:
+    """Split a comma-separated CORS_ORIGINS value into a clean list of origins.
+
+    Unset falls back to the default; an empty string means "allow no origins".
+    """
+    if value is None:
+        value = DEFAULT_CORS_ORIGINS
+    return [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=parse_cors_origins(os.getenv("CORS_ORIGINS")),
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Content-Type"],
+)
+
+
 def get_book_or_404(db: Session, book_id: int) -> Book:
     """Fetch a book by id, raising 404 if it doesn't exist."""
     book = db.get(Book, book_id)
     if book is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=BOOK_NOT_FOUND)
     return book
+
+
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    responses={status.HTTP_503_SERVICE_UNAVAILABLE: {"model": ErrorResponse}},
+)
+def health(db: Session = Depends(get_db)) -> HealthResponse:
+    """Liveness + readiness: 200 only if the database answers a trivial query."""
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=DATABASE_UNAVAILABLE
+        ) from exc
+    return HealthResponse(status="ok")
 
 
 @app.post("/books", response_model=BookRead, status_code=status.HTTP_201_CREATED)

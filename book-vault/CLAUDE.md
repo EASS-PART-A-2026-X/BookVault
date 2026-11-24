@@ -24,7 +24,7 @@ Never edit `uv.lock` by hand. Change dependencies with `uv add` / `uv remove`.
 
 ```
 app/
-  main.py       FastAPI app, lifespan (creates tables), all endpoints
+  main.py       FastAPI app, lifespan (creates tables), CORS middleware (CORS_ORIGINS), all endpoints incl. GET /health
   database.py   DATABASE_URL (default sqlite:///./data/books.db), engine, SessionLocal, Base, get_db
   models.py     SQLAlchemy ORM models (typed Mapped[...] style)
   schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead
@@ -54,6 +54,11 @@ data/           runtime SQLite file (gitignored, also the Docker volume at /app/
   `responses=NOT_FOUND_RESPONSE` so the 404 is documented in OpenAPI, and
   `test_404_documented_in_openapi` checks this. Leave validation errors to FastAPI's
   default `422` response.
+- **CORS.** Allowed origins come only from `CORS_ORIGINS` (comma-separated, default
+  `http://localhost:5173`), parsed by `parse_cors_origins()`. Never use `"*"`. If a new
+  endpoint uses a new HTTP method, add it to `allow_methods`.
+- **Health.** `GET /health` returns `{"status": "ok"}` only if `SELECT 1` succeeds, otherwise
+  `503`. Docker healthchecks depend on it, so keep it cheap and unauthenticated.
 - **Tests are required.** Every new endpoint needs tests for success, validation
   (`422`) and not-found (`404`) cases. Use the `client` fixture and never point tests
   at `./data/books.db`.

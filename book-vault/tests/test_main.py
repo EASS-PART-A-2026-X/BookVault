@@ -1,5 +1,6 @@
-"""API tests for the Book Vault: CRUD, filters, validation, 404s and persistence."""
+"""API tests for the Book Vault: CRUD, filters, validation, 404s, health, CORS, persistence."""
 
+import importlib
 import os
 from collections.abc import Generator
 from pathlib import Path
@@ -8,10 +9,12 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
+import app.main as main_module
 from app.database import DEFAULT_DATABASE_URL, Base, ensure_sqlite_dir, get_db
-from app.main import app
+from app.main import DEFAULT_CORS_ORIGINS, app, parse_cors_origins
 
 VALID_BOOK: dict[str, Any] = {
     "title": "Dune",
@@ -287,6 +290,108 @@ def test_404_documented_in_openapi(client: TestClient) -> None:
         assert schema_ref == "#/components/schemas/ErrorResponse"
     error_schema = spec["components"]["schemas"]["ErrorResponse"]
     assert error_schema["properties"]["detail"]["type"] == "string"
+
+
+# ------------------------------------------------------------------------- Health
+
+
+def test_health_ok(client: TestClient) -> None:
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_health_returns_503_when_database_fails(client: TestClient) -> None:
+    class BrokenSession:
+        def execute(self, *_: Any) -> None:
+            raise OperationalError("SELECT 1", {}, Exception("disk I/O error"))
+
+    app.dependency_overrides[get_db] = lambda: BrokenSession()
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
+
+
+# --------------------------------------------------------------------------- CORS
+
+DEV_ORIGIN = "http://localhost:5173"
+
+
+def preflight(client: TestClient, origin: str, method: str = "POST") -> Any:
+    return client.options(
+        "/books",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": method,
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+
+def test_cors_default_origin_is_vite_dev_server() -> None:
+    assert parse_cors_origins(None) == [DEV_ORIGIN]
+    assert DEFAULT_CORS_ORIGINS == DEV_ORIGIN
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("http://a.test", ["http://a.test"]),
+        (" http://a.test/ , http://b.test:8080 ,", ["http://a.test", "http://b.test:8080"]),
+        ("", []),
+    ],
+    ids=["single", "list-with-spaces-and-trailing-slash", "empty-disables"],
+)
+def test_parse_cors_origins(value: str, expected: list[str]) -> None:
+    assert parse_cors_origins(value) == expected
+
+
+@pytest.mark.parametrize("method", ["GET", "POST", "PUT", "DELETE"])
+def test_cors_preflight_allowed_for_default_origin(client: TestClient, method: str) -> None:
+    response = preflight(client, DEV_ORIGIN, method)
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == DEV_ORIGIN
+    assert method in response.headers["access-control-allow-methods"]
+    assert "content-type" in response.headers["access-control-allow-headers"].lower()
+
+
+def test_cors_simple_request_gets_allow_origin_header(client: TestClient) -> None:
+    response = client.get("/books", headers={"Origin": DEV_ORIGIN})
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == DEV_ORIGIN
+
+
+def test_cors_unknown_origin_rejected(client: TestClient) -> None:
+    response = preflight(client, "http://evil.test")
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+    simple = client.get("/books", headers={"Origin": "http://evil.test"})
+    assert "access-control-allow-origin" not in simple.headers
+
+
+@pytest.fixture
+def reload_main(monkeypatch: pytest.MonkeyPatch) -> Generator[Any, None, None]:
+    """Re-import app.main under a patched environment, then restore the original."""
+
+    def _reload(**env: str) -> Any:
+        for key, value in env.items():
+            monkeypatch.setenv(key, value)
+        return importlib.reload(main_module)
+
+    yield _reload
+    monkeypatch.undo()
+    importlib.reload(main_module)
+
+
+def test_cors_origins_read_from_env_var(reload_main: Any) -> None:
+    module = reload_main(CORS_ORIGINS="http://app.test, http://localhost:8080")
+    with TestClient(module.app) as env_client:
+        for origin in ("http://app.test", "http://localhost:8080"):
+            response = preflight(env_client, origin)
+            assert response.status_code == 200
+            assert response.headers["access-control-allow-origin"] == origin
+        # Setting the variable replaces the default instead of adding to it.
+        assert preflight(env_client, DEV_ORIGIN).status_code == 400
 
 
 # ----------------------------------------------------------------------- Database

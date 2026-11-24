@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -64,6 +64,12 @@ class ErrorResponse(BaseModel):
     """Body of error responses raised with HTTPException (e.g. 404)."""
 
     detail: str
+
+
+class HealthResponse(BaseModel):
+    """Body of GET /health."""
+
+    status: Literal["ok"]
 
 
 class BookRead(BookBase):
