@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from 'react';
 import { ValidationError } from '../api/books';
 import type { BookFormValues } from '../lib/bookForm';
 import { describeError, mapValidationIssues } from '../lib/errors';
@@ -38,7 +38,10 @@ export function BookForm({
   onCancel,
 }: Props) {
   const [values, setValues] = useState(initialValues);
+  // Client and server errors are kept apart: leaving a field re-runs the client
+  // check, which must not wipe a 422 message the server gave for that field.
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [serverErrors, setServerErrors] = useState<FieldErrors>({});
   const [touched, setTouched] = useState<Partial<Record<FieldName, boolean>>>({});
   const [formError, setFormError] = useState<ReactNode>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -46,6 +49,9 @@ export function BookForm({
   const submittingRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const formErrorRef = useRef<HTMLDivElement>(null);
+
+  /** What's shown per field: the client error if any, else the server's. */
+  const shown = (field: FieldName) => errors[field] ?? serverErrors[field];
 
   const uid = useId();
   const id = (field: FieldName) => `${uid}-${field}`;
@@ -62,10 +68,12 @@ export function BookForm({
     const next = { ...values, [field]: value };
     setValues(next);
     // Live re-validation once the user has left the field (or after a submit),
-    // so errors clear as soon as they're fixed. Server errors on this field go too.
+    // so errors clear as soon as they're fixed.
     if (touched[field] || errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: validateField(field, next) }));
     }
+    // Editing a field the server rejected means the user is fixing it.
+    if (serverErrors[field]) setServerErrors((prev) => ({ ...prev, [field]: undefined }));
   }
 
   function blur(field: FieldName) {
@@ -80,6 +88,7 @@ export function BookForm({
     const clientErrors = validateBook(values);
     setTouched({ title: true, author: true, genre: true, rating: true });
     setErrors(clientErrors);
+    setServerErrors({});
     const first = firstInvalidField(clientErrors);
     if (first) {
       setFormError(null);
@@ -95,7 +104,7 @@ export function BookForm({
     } catch (error) {
       if (error instanceof ValidationError) {
         const { fieldErrors, formErrors } = mapValidationIssues(error.issues);
-        setErrors(fieldErrors);
+        setServerErrors(fieldErrors);
         setFormError(
           formErrors.length > 0 ? (
             <>
@@ -132,19 +141,30 @@ export function BookForm({
     }
   }
 
+  /**
+   * Pressing a form button would blur the current field first; its blur check can
+   * insert an error message above the buttons and shift them down, so the click
+   * lands beside the button and is lost. Keeping focus in the field until the click
+   * fires avoids that; submit then validates everything itself.
+   */
+  function keepFocus(event: MouseEvent) {
+    event.preventDefault();
+  }
+
   /** Props wiring a control to its error message for assistive tech. */
   function a11y(field: FieldName) {
     return {
-      'aria-invalid': errors[field] ? true : undefined,
-      'aria-describedby': errors[field] ? errorId(field) : undefined,
+      'aria-invalid': shown(field) ? true : undefined,
+      'aria-describedby': shown(field) ? errorId(field) : undefined,
     };
   }
 
   function fieldError(field: FieldName) {
-    if (!errors[field]) return null;
+    const message = shown(field);
+    if (!message) return null;
     return (
       <p className="field-error" id={errorId(field)}>
-        {errors[field]}
+        {message}
       </p>
     );
   }
@@ -164,7 +184,7 @@ export function BookForm({
       )}
 
       <fieldset className="book-form__fields" disabled={submitting}>
-        <div className={errors.title ? 'field field--invalid' : 'field'}>
+        <div className={shown('title') ? 'field field--invalid' : 'field'}>
           <label htmlFor={id('title')}>Title</label>
           <input
             id={id('title')}
@@ -179,7 +199,7 @@ export function BookForm({
           {fieldError('title')}
         </div>
 
-        <div className={errors.author ? 'field field--invalid' : 'field'}>
+        <div className={shown('author') ? 'field field--invalid' : 'field'}>
           <label htmlFor={id('author')}>Author</label>
           <input
             id={id('author')}
@@ -194,7 +214,7 @@ export function BookForm({
           {fieldError('author')}
         </div>
 
-        <div className={errors.genre ? 'field field--invalid' : 'field'}>
+        <div className={shown('genre') ? 'field field--invalid' : 'field'}>
           <label htmlFor={id('genre')}>Genre</label>
           <select
             id={id('genre')}
@@ -215,7 +235,7 @@ export function BookForm({
           {fieldError('genre')}
         </div>
 
-        <div className={errors.rating ? 'field field--invalid' : 'field'}>
+        <div className={shown('rating') ? 'field field--invalid' : 'field'}>
           <span className="label">
             Rating <span className="hint">(optional)</span>
           </span>
@@ -225,13 +245,13 @@ export function BookForm({
             value={values.rating}
             onChange={(r) => update('rating', r)}
             disabled={submitting}
-            invalid={Boolean(errors.rating)}
-            describedBy={errors.rating ? errorId('rating') : undefined}
+            invalid={Boolean(shown('rating'))}
+            describedBy={shown('rating') ? errorId('rating') : undefined}
           />
           {fieldError('rating')}
         </div>
 
-        <div className={errors.is_read ? 'field field--invalid' : 'field'}>
+        <div className={shown('is_read') ? 'field field--invalid' : 'field'}>
           <div className="field--inline">
             <input
               id={id('is_read')}
@@ -246,7 +266,7 @@ export function BookForm({
           {fieldError('is_read')}
         </div>
 
-        <div className={errors.review ? 'field field--invalid' : 'field'}>
+        <div className={shown('review') ? 'field field--invalid' : 'field'}>
           <label htmlFor={id('review')}>
             Review <span className="hint">(optional)</span>
           </label>
@@ -263,11 +283,21 @@ export function BookForm({
 
         <div className="form-actions">
           {onCancel && (
-            <button type="button" className="btn btn--ghost" onClick={onCancel}>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onMouseDown={keepFocus}
+              onClick={onCancel}
+            >
               Cancel
             </button>
           )}
-          <button type="submit" className="btn btn--primary" aria-busy={submitting || undefined}>
+          <button
+            type="submit"
+            className="btn btn--primary"
+            onMouseDown={keepFocus}
+            aria-busy={submitting || undefined}
+          >
             {submitting ? (
               <>
                 <Spinner label={submittingLabel} inline />

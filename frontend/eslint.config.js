@@ -18,6 +18,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['e2e/**/*.ts', 'playwright.config.ts', 'vite.config.ts'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },

@@ -1,26 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as api from '../api/books';
 import { makeBook } from '../test/fixtures';
+import { mocked } from '../test/mockApi';
 import { renderApp } from '../test/render';
 
-vi.mock('../api/books', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/books')>();
-  return {
-    ...actual,
-    listBooks: vi.fn(),
-    getBook: vi.fn(),
-    createBook: vi.fn(),
-    updateBook: vi.fn(),
-    deleteBook: vi.fn(),
-  };
-});
+vi.mock('../api/books', async () => (await import('../test/mockApiFactory')).default());
 
-const listBooks = vi.mocked(api.listBooks);
-const getBook = vi.mocked(api.getBook);
-const createBook = vi.mocked(api.createBook);
-const updateBook = vi.mocked(api.updateBook);
-const deleteBook = vi.mocked(api.deleteBook);
+const { listBooks, getBook, createBook, updateBook, deleteBook } = mocked;
 
 beforeEach(() => {
   vi.resetAllMocks();

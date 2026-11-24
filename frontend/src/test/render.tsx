@@ -6,7 +6,7 @@ import { AppRoutes } from '../App';
 /** Exposes the current URL so tests can assert on query-string state. */
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{location.pathname + location.search}</output>;
+  return <div data-testid="location">{location.pathname + location.search}</div>;
 }
 
 export function renderApp(url = '/') {
