@@ -24,6 +24,16 @@ export const mocked = {
   register: vi.mocked(api.register),
   logout: vi.mocked(api.logout),
   updateProfile: vi.mocked(api.updateProfile),
+  searchUsers: vi.mocked(api.searchUsers),
+  getProfile: vi.mocked(api.getProfile),
+  getUserBooks: vi.mocked(api.getUserBooks),
+  getFollowers: vi.mocked(api.getFollowers),
+  getFollowing: vi.mocked(api.getFollowing),
+  followUser: vi.mocked(api.followUser),
+  unfollowUser: vi.mocked(api.unfollowUser),
+  removeFollower: vi.mocked(api.removeFollower),
+  listFollowRequests: vi.mocked(api.listFollowRequests),
+  answerFollowRequest: vi.mocked(api.answerFollowRequest),
   setUnauthorizedHandler: vi.mocked(api.setUnauthorizedHandler),
 };
 
@@ -50,5 +60,6 @@ export function resetApiMocks() {
   mocked.getMe.mockResolvedValue(READER);
   mocked.listTropes.mockResolvedValue([]);
   mocked.logout.mockResolvedValue(undefined);
+  mocked.listFollowRequests.mockResolvedValue([]);
   mocked.setUnauthorizedHandler.mockImplementation(actualSetUnauthorizedHandler);
 }

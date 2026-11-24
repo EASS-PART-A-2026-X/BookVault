@@ -8,10 +8,10 @@
  * Every step attaches a screenshot to the HTML report.
  */
 import { expect, test, type Page } from '@playwright/test';
+import { PASSWORD, logOut, signUp } from './helpers';
 
 /** Same-origin API path; requests made with page.request share the login cookie. */
 const API = '/api';
-const PASSWORD = 'correct horse battery';
 
 const BOOK = {
   title: 'The Left Hand of Darkness',
@@ -39,21 +39,6 @@ async function snap(page: Page, name: string) {
 
 function toast(page: Page, text: string | RegExp) {
   return page.getByRole('region', { name: 'Notifications' }).getByText(text);
-}
-
-/** Create an account through the real sign-up page; ends logged in on the book list. */
-async function signUp(page: Page, username: string) {
-  await page.goto('/register');
-  await page.getByLabel('Username').fill(username);
-  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByLabel('Confirm password').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page.getByRole('heading', { name: 'Your books', level: 1 })).toBeVisible();
-}
-
-async function logOut(page: Page) {
-  await page.getByRole('button', { name: 'Log out' }).click();
-  await expect(page.getByRole('heading', { name: 'Log in' })).toBeVisible();
 }
 
 function card(page: Page, title: string) {

@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.auth import UNAUTHORIZED_RESPONSE, current_user, users_router
+from app.auth import UNAUTHORIZED_RESPONSE, current_user
 from app.auth import router as auth_router
 from app.database import Base, engine, get_db
 from app.migrations import migrate
@@ -27,6 +27,7 @@ from app.schemas import (
     TropeCount,
     normalize_trope,
 )
+from app.social import router as social_router
 
 BOOK_NOT_FOUND = "Book not found"
 DATABASE_UNAVAILABLE = "Database unavailable"
@@ -78,7 +79,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
-app.include_router(users_router)
+app.include_router(social_router)
 
 
 def get_book_or_404(db: Session, book_id: int, user: User) -> Book:

@@ -26,15 +26,17 @@ Never edit `uv.lock` by hand. Change dependencies with `uv add` / `uv remove`.
 app/
   main.py       FastAPI app, lifespan (create_all + migrate), CORS, book/trope endpoints, GET /health
   auth.py       accounts + sessions: Argon2 hashing, cookie sessions, current_user dependency,
-                /auth/register|login|logout|me and PATCH /users/me
+                /auth/register|login|logout|me
+  social.py     PATCH /users/me, user search, profiles, others' books, follow / follow requests
   migrations.py migrate(engine): small, idempotent ALTERs for databases made by older versions
   database.py   DATABASE_URL (default sqlite:///./data/books.db), engine, SessionLocal, Base, get_db
-  models.py     SQLAlchemy ORM models (typed Mapped[...] style): User, AuthSession, Book, Trope, book_tropes
+  models.py     SQLAlchemy ORM models (typed Mapped[...] style): User, AuthSession, Follow, Book, Trope, book_tropes
   schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead, TropeCount
 tests/
   conftest.py   fresh in-memory SQLite (StaticPool) per test; `client` = logged-in user "reader",
                 `make_client("alice")` = another logged-in user, `anon_client` = logged out
   test_auth.py  accounts, sessions, ownership, migrations
+  test_social.py search, profiles, follow / requests, visibility
   test_main.py  API tests, grouped by CRUD / filters / validation / 404 / persistence
 data/           runtime SQLite file (gitignored, also the Docker volume at /app/data)
 ```
@@ -66,6 +68,11 @@ data/           runtime SQLite file (gitignored, also the Docker volume at /app/
   Passwords only via `hash_password`/`verify_password`; never return or log them. The
   session cookie is httpOnly + SameSite=Lax; only `sha256(token)` is stored. Login errors
   are always the same 401 message (don't reveal whether a username exists).
+- **Social visibility** is decided only by `can_view_books(db, viewer, owner)` in
+  `app/social.py` (self, public profile, or accepted follow). Any endpoint exposing
+  another user's books, reviews or follower lists must check it and answer `403
+  PROFILE_PRIVATE`. Names, bio and counts are public to logged-in users. Follows are
+  one row per (follower, followee) with status `pending`/`accepted`; declining deletes it.
 - **Schema changes.** New tables: just add the model (`create_all` makes them). New
   columns on existing tables: add an idempotent step to `app/migrations.py` plus a test
   that upgrades an old-schema database (see `test_auth.py`).

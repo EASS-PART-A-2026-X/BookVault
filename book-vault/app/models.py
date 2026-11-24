@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, Enum, ForeignKey, String, Table, Text
+from sqlalchemy import Column, Enum, ForeignKey, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -41,6 +41,23 @@ class AuthSession(Base):
     expires_at: Mapped[datetime]
 
     user: Mapped[User] = relationship(lazy="joined")
+
+
+class Follow(Base):
+    """follower -> followee. "pending" until a private followee accepts; following a
+    public profile is "accepted" straight away. Declining deletes the row."""
+
+    __tablename__ = "follows"
+    __table_args__ = (UniqueConstraint("follower_id", "followee_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    follower_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    followee_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(10))  # "pending" | "accepted"
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    follower: Mapped[User] = relationship(foreign_keys=[follower_id], lazy="joined")
+    followee: Mapped[User] = relationship(foreign_keys=[followee_id], lazy="joined")
 
 
 # Many-to-many link between books and tropes. Rows are removed with either side.

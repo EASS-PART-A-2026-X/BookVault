@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AuthSession, Book, User
-from app.schemas import ErrorResponse, LoginRequest, ProfileUpdate, RegisterRequest, UserRead
+from app.schemas import ErrorResponse, LoginRequest, RegisterRequest, UserRead
 
 SESSION_COOKIE = "bv_session"
 SESSION_DAYS = int(os.getenv("SESSION_DAYS", "30"))
@@ -161,21 +161,4 @@ def logout(
 
 @router.get("/me", response_model=UserRead, responses=UNAUTHORIZED_RESPONSE)
 def me(user: User = Depends(current_user)) -> User:
-    return user
-
-
-users_router = APIRouter(prefix="/users", tags=["users"])
-
-
-@users_router.patch("/me", response_model=UserRead, responses=UNAUTHORIZED_RESPONSE)
-def update_me(
-    payload: ProfileUpdate,
-    user: User = Depends(current_user),
-    db: Session = Depends(get_db),
-) -> User:
-    """Change your display name, bio or public/private setting."""
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
-    db.commit()
-    db.refresh(user)
     return user

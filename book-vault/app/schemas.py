@@ -197,6 +197,54 @@ class ProfileUpdate(BaseModel):
         return self
 
 
+# ------------------------------------------------------------------ Social
+
+# How the logged-in viewer relates to another user.
+#   "self"      it's you
+#   "none"      you don't follow them
+#   "requested" you asked to follow (their profile is private) and they haven't answered
+#   "following" you follow them
+FollowStatus = Literal["self", "none", "requested", "following"]
+
+
+class UserSummary(BaseModel):
+    """A row in search results and follower lists."""
+
+    username: str
+    display_name: str
+    is_public: bool
+    follow_status: FollowStatus
+
+
+class ProfileRead(UserSummary):
+    """GET /users/{username}. Name, bio and counts are visible to every logged-in user;
+    the books themselves only when `can_view_books`."""
+
+    bio: str
+    created_at: datetime
+    book_count: int
+    follower_count: int
+    following_count: int
+    # True for yourself, for public profiles, and for private ones you follow.
+    can_view_books: bool
+    # They follow you (accepted), shown as "Follows you".
+    follows_you: bool
+
+
+class FollowResult(BaseModel):
+    """POST /users/{username}/follow."""
+
+    follow_status: FollowStatus
+
+
+class FollowRequestRead(BaseModel):
+    """An incoming, unanswered follow request."""
+
+    username: str
+    display_name: str
+    requested_at: datetime
+
+
 class TropeCount(BaseModel):
     """One entry of GET /tropes: a trope and how many books have it."""
 

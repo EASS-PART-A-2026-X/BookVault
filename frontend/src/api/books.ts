@@ -7,11 +7,15 @@ import type {
   BookCreate,
   BookFilters,
   BookUpdate,
+  FollowRequest,
+  FollowStatus,
   LoginRequest,
+  Profile,
   ProfileUpdate,
   RegisterRequest,
   TropeCount,
   User,
+  UserSummary,
 } from '../types';
 
 /** Same origin by default: forwarded to the backend by Vite (dev) or nginx (Docker). */
@@ -197,6 +201,63 @@ export function getMe(signal?: AbortSignal): Promise<User> {
 
 export function updateProfile(data: ProfileUpdate): Promise<User> {
   return request<User>('/users/me', jsonInit('PATCH', data));
+}
+
+// -------------------------------------------------------------------- Social
+
+const user = (username: string) => `/users/${encodeURIComponent(username)}`;
+
+export function searchUsers(q: string, signal?: AbortSignal): Promise<UserSummary[]> {
+  return request<UserSummary[]>(`/users?${new URLSearchParams({ q })}`, { signal });
+}
+
+export function getProfile(username: string, signal?: AbortSignal): Promise<Profile> {
+  return request<Profile>(user(username), { signal });
+}
+
+/** Their books and reviews; 403 ApiError if their profile is private to you. */
+export function getUserBooks(username: string, signal?: AbortSignal): Promise<Book[]> {
+  return request<Book[]>(`${user(username)}/books`, { signal });
+}
+
+export function getFollowers(username: string, signal?: AbortSignal): Promise<UserSummary[]> {
+  return request<UserSummary[]>(`${user(username)}/followers`, { signal });
+}
+
+export function getFollowing(username: string, signal?: AbortSignal): Promise<UserSummary[]> {
+  return request<UserSummary[]>(`${user(username)}/following`, { signal });
+}
+
+/** Follow (public profile) or send a request (private). Returns the new status. */
+export async function followUser(username: string): Promise<FollowStatus> {
+  const result = await request<{ follow_status: FollowStatus }>(`${user(username)}/follow`, {
+    method: 'POST',
+  });
+  return result.follow_status;
+}
+
+/** Unfollow, or cancel a pending request. */
+export async function unfollowUser(username: string): Promise<void> {
+  await request<undefined>(`${user(username)}/follow`, { method: 'DELETE' });
+}
+
+export async function removeFollower(username: string): Promise<void> {
+  await request<undefined>(`/users/me/followers/${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function listFollowRequests(signal?: AbortSignal): Promise<FollowRequest[]> {
+  return request<FollowRequest[]>('/follow-requests', { signal });
+}
+
+export async function answerFollowRequest(
+  username: string,
+  answer: 'accept' | 'decline',
+): Promise<void> {
+  await request<undefined>(`/follow-requests/${encodeURIComponent(username)}/${answer}`, {
+    method: 'POST',
+  });
 }
 
 export function isAbortError(error: unknown): boolean {

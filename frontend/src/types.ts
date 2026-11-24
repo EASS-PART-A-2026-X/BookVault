@@ -123,3 +123,33 @@ export interface ProfileUpdate {
 export function normalizeUsername(name: string): string {
   return name.trim().toLowerCase();
 }
+
+// -------------------------------------------------------------------- Social
+
+/** How you relate to another user. */
+export type FollowStatus = 'self' | 'none' | 'requested' | 'following';
+
+/** Search results and follower lists. */
+export interface UserSummary {
+  username: string;
+  display_name: string;
+  is_public: boolean;
+  follow_status: FollowStatus;
+}
+
+/** GET /users/{username}. Books are only readable when can_view_books. */
+export interface Profile extends UserSummary {
+  bio: string;
+  created_at: string;
+  book_count: number;
+  follower_count: number;
+  following_count: number;
+  can_view_books: boolean;
+  follows_you: boolean;
+}
+
+export interface FollowRequest {
+  username: string;
+  display_name: string;
+  requested_at: string;
+}

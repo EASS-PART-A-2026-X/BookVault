@@ -11,7 +11,13 @@ import { BookDetailPage } from './pages/BookDetailPage';
 import { BookListPage } from './pages/BookListPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { PeoplePage } from './pages/PeoplePage';
+import { ProfilePage } from './pages/ProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { RequestsPage } from './pages/RequestsPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { useRequestCount } from './social/requestCount';
+import { RequestCountProvider } from './social/RequestCountProvider';
 import { useToast } from './toast/context';
 import { ToastProvider } from './toast/ToastProvider';
 
@@ -36,9 +42,13 @@ function UserMenu() {
 
   return (
     <div className="user-menu">
-      <span className="user-menu__name" title={`@${user.username}`}>
+      <NavLink
+        to={`/u/${user.username}`}
+        className="user-menu__name"
+        title={`Your profile (@${user.username})`}
+      >
         {user.display_name}
-      </span>
+      </NavLink>
       <button
         type="button"
         className="btn btn--ghost btn--small"
@@ -51,11 +61,29 @@ function UserMenu() {
   );
 }
 
+function RequestsLink() {
+  const { count } = useRequestCount();
+  return (
+    <NavLink
+      to="/requests"
+      className="nav-link"
+      aria-label={count ? `Requests (${count} waiting)` : 'Requests'}
+    >
+      Requests
+      {count > 0 && (
+        <span className="nav-badge" aria-hidden="true">
+          {count}
+        </span>
+      )}
+    </NavLink>
+  );
+}
+
 function Layout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
   return (
-    <>
+    <RequestCountProvider enabled={user !== null}>
       <a href="#main" className="skip-link">
         Skip to content
       </a>
@@ -74,9 +102,10 @@ function Layout() {
                 <NavLink to="/" end className="nav-link">
                   Books
                 </NavLink>
-                <NavLink to="/books/new" className="nav-link">
-                  Add book
+                <NavLink to="/people" className="nav-link">
+                  People
                 </NavLink>
+                <RequestsLink />
                 <UserMenu />
               </>
             ) : (
@@ -98,7 +127,7 @@ function Layout() {
           <Outlet />
         </ErrorBoundary>
       </main>
-    </>
+    </RequestCountProvider>
   );
 }
 
@@ -116,6 +145,10 @@ export function AppRoutes() {
               <Route index element={<BookListPage />} />
               <Route path="books/new" element={<AddBookPage />} />
               <Route path="books/:id" element={<BookDetailPage />} />
+              <Route path="people" element={<PeoplePage />} />
+              <Route path="u/:username" element={<ProfilePage />} />
+              <Route path="requests" element={<RequestsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFoundPage />} />
           </Route>

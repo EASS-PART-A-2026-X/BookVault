@@ -9,7 +9,9 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 ## Features
 
 - Accounts: sign up, log in, log out (Argon2 password hashes, httpOnly session cookie)
-- Every user has their own private book list
+- Every user has their own book list
+- Social: search people, view profiles and reviews, follow. Public profiles can be
+  followed at once; private ones need an accepted follow request
 - Full CRUD for books (`/books`)
 - Tag books with free-form **tropes** (e.g. `enemies to lovers`, `found family`)
 - Filter the list by `genre`, `is_read`, `min_rating` and `trope` (filters can be combined)
@@ -52,10 +54,23 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 | `POST`   | `/auth/login`      | Log in (sets the session cookie)  | `200`   | `401`      |
 | `POST`   | `/auth/logout`     | Log out (ends the session)        | `204`   |            |
 | `GET`    | `/auth/me`         | The logged-in account             | `200`   | `401`      |
-| `PATCH`  | `/users/me`        | Change display name, bio, public/private | `200` | `401`, `422` |
+| `PATCH`  | `/users/me`        | Change display name, bio, public/private (going public accepts pending requests) | `200` | `401`, `422` |
+| `GET`    | `/users?q=`        | Search people by username or display name | `200` | `422` |
+| `GET`    | `/users/{username}` | Profile: name, bio, counts, your follow status | `200` | `404` |
+| `GET`    | `/users/{username}/books` | Their books and reviews | `200` | `403` (private), `404` |
+| `GET`    | `/users/{username}/followers`, `/following` | Accepted followers / follows | `200` | `403`, `404` |
+| `POST`   | `/users/{username}/follow` | Follow (public) or request to follow (private) | `200` | `400` (yourself), `404` |
+| `DELETE` | `/users/{username}/follow` | Unfollow or cancel a request | `204` | `404` |
+| `DELETE` | `/users/me/followers/{username}` | Remove one of your followers | `204` | `404` |
+| `GET`    | `/follow-requests` | Requests waiting for your answer | `200` | |
+| `POST`   | `/follow-requests/{username}/accept`, `/decline` | Answer a request | `204` | `404` |
 | `GET`    | `/health`          | Health check (also pings the DB)  | `200`   | `503`      |
 
-Every `/books` and `/tropes` endpoint needs a logged-in user (otherwise `401
+**Who sees what.** Any logged-in user can find you and see your name, bio and counts.
+Your books and reviews are visible to you, to everyone if your profile is public, and
+otherwise only to followers whose request you accepted. Profiles start private.
+
+Every endpoint except `/health` and `/auth/register|login|logout` needs a logged-in user; `/books` and `/tropes` (otherwise `401
 {"detail": "Not authenticated"}`) and only ever sees that user's books. Another user's
 book id answers `404`, exactly like a missing one. `/health` stays public.
 
