@@ -1,0 +1,73 @@
+import { GENRES, MAX_RATING, MIN_RATING, isGenre } from '../types';
+import type { FilterState, ReadFilter } from '../lib/filters';
+
+interface Props {
+  value: FilterState;
+  onChange: (patch: Partial<FilterState>) => void;
+  onClear: () => void;
+  isFiltered: boolean;
+}
+
+const RATINGS = Array.from({ length: MAX_RATING - MIN_RATING + 1 }, (_, i) => i + MIN_RATING);
+
+export function Filters({ value, onChange, onClear, isFiltered }: Props) {
+  return (
+    <form
+      className="filters"
+      role="search"
+      aria-label="Filter books"
+      onSubmit={(e) => e.preventDefault()}
+    >
+      <div className="field">
+        <label htmlFor="filter-genre">Genre</label>
+        <select
+          id="filter-genre"
+          value={value.genre}
+          onChange={(e) => onChange({ genre: isGenre(e.target.value) ? e.target.value : '' })}
+        >
+          <option value="">All genres</option>
+          {GENRES.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="filter-status">Status</label>
+        <select
+          id="filter-status"
+          value={value.read}
+          onChange={(e) => onChange({ read: e.target.value as ReadFilter })}
+        >
+          <option value="all">All</option>
+          <option value="read">Read</option>
+          <option value="unread">Unread</option>
+        </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="filter-rating">Minimum rating</label>
+        <select
+          id="filter-rating"
+          value={value.minRating ?? ''}
+          onChange={(e) => onChange({ minRating: e.target.value ? Number(e.target.value) : null })}
+        >
+          <option value="">Any</option>
+          {RATINGS.map((r) => (
+            <option key={r} value={r}>
+              {'★'.repeat(r)} {r}+
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {isFiltered && (
+        <button type="button" className="btn btn--ghost filters__clear" onClick={onClear}>
+          Clear filters
+        </button>
+      )}
+    </form>
+  );
+}
