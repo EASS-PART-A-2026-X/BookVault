@@ -72,7 +72,9 @@ describe('book list', () => {
       '/?genre=Mystery&status=read&min_rating=4',
     );
 
-    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await user.click(
+      within(screen.getByRole('search')).getByRole('button', { name: 'Clear filters' }),
+    );
     await waitFor(() => expect(listBooks.mock.calls.at(-1)?.[0]).toEqual({}));
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/);
   });
@@ -180,7 +182,7 @@ describe('book detail', () => {
 
   it('shows the not-found page for an id that cannot exist, without calling the API', async () => {
     renderApp('/books/abc');
-    expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Book not found' })).toBeInTheDocument();
     expect(getBook).not.toHaveBeenCalled();
   });
 });

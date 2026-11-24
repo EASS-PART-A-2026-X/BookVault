@@ -1,49 +1,35 @@
 /* Book Vault — one small stylesheet. Tokens first, then base, layout, components. */
 
 :root {
-  --bg: #f6f7fb;
-  --surface: #ffffff;
-  --surface-2: #f0f2f8;
-  --text: #1c2030;
-  --muted: #5d6478;
-  --border: #dde1ec;
-  --primary: #3b5bdb;
-  --primary-hover: #2f4ac0;
-  --primary-text: #ffffff;
-  --danger: #c92a2a;
-  --danger-bg: #fff0f0;
-  --success: #2b8a3e;
-  --success-bg: #ebfbee;
-  --star: #f59f00;
-  --star-off: #ced4e0;
-  --focus: #4c6ef5;
-  --radius: 10px;
-  --shadow: 0 1px 2px rgb(20 24 40 / 6%), 0 2px 8px rgb(20 24 40 / 5%);
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #12141c;
-    --surface: #1b1e29;
-    --surface-2: #242838;
-    --text: #e7e9f0;
-    --muted: #9aa1b5;
-    --border: #2f3446;
-    --primary: #6d8cff;
-    --primary-hover: #8aa2ff;
-    --primary-text: #0d1020;
-    --danger: #ff8787;
-    --danger-bg: #3a1d22;
-    --success: #69db7c;
-    --success-bg: #163222;
-    --star: #ffc94d;
-    --star-off: #3c4257;
-    --focus: #8aa2ff;
-    --shadow: none;
-    color-scheme: dark;
-  }
+  /* Classic vault: black, brushed steel, warm ivory text, gold for ratings. */
+  --bg: #050505;
+  --surface: #101011;
+  --surface-2: #19191b;
+  --text: #ece8df;
+  --muted: #9b968b;
+  --border: #2a2a2d;
+  --border-strong: #3c3c40;
+  --steel-1: #f4f5f7;
+  --steel-2: #b7bcc4;
+  --steel-3: #7d838c;
+  --steel: linear-gradient(135deg, #f4f5f7 0%, #b7bcc4 38%, #e6e8eb 62%, #8d939b 100%);
+  --primary: #d4d7dc;
+  --primary-hover: #ffffff;
+  --primary-text: #0b0b0c;
+  --gold: #c9a961;
+  --danger: #e5847a;
+  --danger-bg: #1d1010;
+  --success: #6fd394;
+  --success-bg: #0f1d14;
+  --star: #d4b26a;
+  --star-off: #3a3935;
+  --focus: #d4b26a;
+  --radius: 4px;
+  --shadow: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 12px 32px rgb(0 0 0 / 55%);
+  --font:
+    'Avenir Next', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  color-scheme: dark;
 }
 
 /* ---------------------------------------------------------------- Base */
@@ -606,5 +592,700 @@ input[type='checkbox'] {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+}
+
+/* ======================================================= Phase 3: states */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.page-title {
+  margin-bottom: 20px;
+}
+
+.stack-top {
+  margin-top: 16px;
+}
+
+/* ------------------------------------------------------------- Spinner */
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.spinner__circle {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex: none;
+}
+
+.spinner--inline .spinner__circle {
+  width: 14px;
+  height: 14px;
+  border-color: currentColor;
+  border-top-color: transparent;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.page-loading {
+  padding: 48px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.result-count {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+}
+
+/* ------------------------------------------------------------ Skeleton */
+
+.skeleton-grid {
+  margin-top: 16px;
+}
+
+.skeleton-card {
+  height: 132px;
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* -------------------------------------------------------------- Banner */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+
+.banner--error {
+  background: var(--danger-bg);
+  border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--text);
+}
+
+.banner__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 700;
+}
+
+.banner__text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.banner__title {
+  color: var(--danger);
+}
+
+.banner__action {
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  .banner__action {
+    width: 100%;
+  }
+}
+
+/* ---------------------------------------------------------- Form errors */
+
+.book-form__fields {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.field-error::before {
+  content: '⚠ ';
+}
+
+.field--invalid input:not([type='checkbox']),
+.field--invalid select,
+.field--invalid textarea {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+.star-input[aria-invalid='true'] {
+  outline: 1px solid var(--danger);
+  border-radius: 8px;
+}
+
+.alert ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.alert:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------- Empty state */
+
+.empty.card {
+  padding: 40px 20px;
+}
+
+.empty__icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.empty__title {
+  font-size: 1.25rem;
+}
+
+.empty__code {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.empty .muted {
+  max-width: 420px;
+}
+
+/* --------------------------------------------------------------- Crash */
+
+.crash__details {
+  width: 100%;
+  max-width: 420px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.crash__details pre {
+  white-space: pre-wrap;
+  background: var(--surface-2);
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.crash__actions {
+  justify-content: center;
+  margin-top: 0;
+}
+
+/* -------------------------------------------------------------- Toasts */
+
+.toasts {
+  position: fixed;
+  z-index: 60;
+  right: 16px;
+  bottom: 16px;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--success);
+  box-shadow: 0 6px 24px rgb(10 12 20 / 18%);
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast--error {
+  border-left-color: var(--danger);
+}
+
+.toast__icon {
+  flex: none;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.toast--error .toast__icon {
+  color: var(--danger);
+}
+
+.toast__message {
+  flex: 1;
+}
+
+.toast__close {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.toast__close:hover {
+  background: var(--surface-2);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (max-width: 640px) {
+  .toasts {
+    left: 16px;
+    right: 16px;
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner__circle,
+  .skeleton-card,
+  .toast {
+    animation-duration: 0s;
+    animation-iteration-count: 1;
+  }
+}
+
+/* ================================================= Classic vault theme */
+
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgb(255 255 255 / 5%), transparent 70%), var(--bg);
+  background-attachment: fixed;
+  min-height: 100vh;
+  letter-spacing: 0.005em;
+}
+
+h1,
+h2,
+.empty__title,
+.book-card__title,
+.dialog__title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+/* Thin steel rule under page headings. */
+.page-head h1::after,
+.page-title::after,
+.narrow > h1::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 1px;
+  margin-top: 10px;
+  background: var(--steel);
+}
+
+/* ------------------------------------------------------------- Header */
+
+.site-header {
+  background: rgb(5 5 5 / 85%);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.site-header::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(201 169 97 / 45%), transparent);
+}
+
+.site-header__inner {
+  min-height: 72px;
+}
+
+.brand {
+  gap: 12px;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.brand__name {
+  display: grid;
+  line-height: 1.1;
+}
+
+.brand__tagline {
+  font-family: var(--font);
+  font-size: 0.62rem;
+  letter-spacing: 0.32em;
+  color: var(--muted);
+}
+
+.vault-logo {
+  flex: none;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 70%));
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.brand:hover .vault-logo {
+  transform: rotate(60deg);
+}
+
+.nav-link {
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 0;
+  border-bottom: 1px solid transparent;
+}
+
+.nav-link:hover {
+  background: none;
+}
+
+.nav-link.active {
+  font-weight: 500;
+  border-bottom-color: var(--gold);
+}
+
+/* ------------------------------------------------------------ Buttons */
+
+.btn {
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.btn--primary {
+  background: var(--steel);
+  color: var(--primary-text);
+  border-color: #c5c9cf;
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 60%) inset,
+    0 4px 14px rgb(0 0 0 / 45%);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--steel);
+  filter: brightness(1.08);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 70%) inset,
+    0 0 0 1px var(--gold),
+    0 6px 18px rgb(0 0 0 / 55%);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--steel-3);
+}
+
+.btn--danger {
+  background: #8f2a22;
+  border-color: #b3443a;
+}
+
+.btn--danger-ghost:hover:not(:disabled) {
+  background: var(--danger-bg);
+}
+
+.btn--link {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--steel-2);
+}
+
+/* -------------------------------------------------------------- Cards */
+
+.card {
+  background: linear-gradient(180deg, #121213, #0d0d0e);
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.book-card {
+  padding-top: 18px;
+}
+
+.book-card:hover {
+  border-color: var(--steel-3);
+  transform: translateY(-2px);
+}
+
+.book-card__title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.book-card__author {
+  font-style: italic;
+  font-family: var(--font-serif);
+}
+
+.badge {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--steel-2);
+  border-radius: 2px;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+
+.status {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.byline {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+.review {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  line-height: 1.6;
+}
+
+.back-link {
+  color: var(--steel-2);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.back-link:hover {
+  color: var(--text);
+}
+
+/* -------------------------------------------------------------- Forms */
+
+.field label,
+.label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--steel-2);
+}
+
+.field--inline label {
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.hint {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+input:not([type='checkbox']),
+select,
+textarea {
+  background: #0a0a0b;
+  border-color: var(--border-strong);
+  border-radius: var(--radius);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+input:not([type='checkbox']):hover,
+select:hover,
+textarea:hover {
+  border-color: var(--steel-3);
+}
+
+input:not([type='checkbox']):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--gold);
+}
+
+.filters {
+  background: linear-gradient(180deg, #121213, #0d0d0e);
+  border-color: var(--border);
+}
+
+.star-btn--on,
+.star--on {
+  text-shadow: 0 0 10px rgb(212 178 106 / 35%);
+}
+
+/* -------------------------------------------------- Banners and states */
+
+.banner--error {
+  background: var(--danger-bg);
+}
+
+.banner__icon {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.empty__icon {
+  filter: grayscale(1) brightness(1.4);
+}
+
+.empty__code {
+  color: var(--gold);
+  letter-spacing: 0.4em;
+}
+
+.toast {
+  background: #141415;
+  border-color: var(--border-strong);
+}
+
+.dialog-backdrop {
+  background: rgb(0 0 0 / 75%);
+  backdrop-filter: blur(3px);
+}
+
+.spinner__circle {
+  border-color: var(--border-strong);
+  border-top-color: var(--gold);
+}
+
+.skeleton-card {
+  background: linear-gradient(90deg, #0f0f10 0%, #1a1a1c 50%, #0f0f10 100%);
+  background-size: 200% 100%;
+}
+
+::selection {
+  background: rgb(201 169 97 / 35%);
+}
+
+@media (max-width: 640px) {
+  h1 {
+    font-size: 1.6rem;
+  }
+
+  .brand__tagline {
+    display: none;
+  }
+
+  .brand {
+    letter-spacing: 0.16em;
+    font-size: 1rem;
+  }
+
+  .nav-link {
+    padding: 6px 6px;
+    letter-spacing: 0.1em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-logo,
+  .book-card {
+    transition: none;
+  }
+
+  .brand:hover .vault-logo {
+    transform: none;
   }
 }

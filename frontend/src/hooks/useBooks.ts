@@ -12,7 +12,8 @@ interface Result {
 /**
  * Fetch the book list for `filters` (pass a memoised object). Loading is derived:
  * the hook is loading whenever the latest result belongs to an older request.
- * The previous list stays visible while new filters load, so the page doesn't flash.
+ * The previous list stays visible while new filters load, so the page doesn't flash,
+ * and the last error stays until a request succeeds.
  */
 export function useBooks(filters: BookFilters) {
   const [attempt, setAttempt] = useState(0);
@@ -37,7 +38,8 @@ export function useBooks(filters: BookFilters) {
 
   return {
     books: result.books,
-    error: loading ? undefined : result.error,
+    // Kept while a retry is in flight, so the banner can say "Retrying…".
+    error: result.error,
     loading,
     reload,
   };

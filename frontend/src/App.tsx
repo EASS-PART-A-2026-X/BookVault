@@ -1,10 +1,14 @@
-import { NavLink, Outlet, Route, Routes } from 'react-router';
+import { NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { VaultLogo } from './components/VaultLogo';
 import { AddBookPage } from './pages/AddBookPage';
 import { BookDetailPage } from './pages/BookDetailPage';
 import { BookListPage } from './pages/BookListPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { ToastProvider } from './toast/ToastProvider';
 
 function Layout() {
+  const { pathname } = useLocation();
   return (
     <>
       <a href="#main" className="skip-link">
@@ -12,11 +16,12 @@ function Layout() {
       </a>
       <header className="site-header">
         <div className="container site-header__inner">
-          <NavLink to="/" className="brand">
-            <span aria-hidden="true" className="brand__mark">
-              ▤
+          <NavLink to="/" className="brand" aria-label="Book Vault home">
+            <VaultLogo size={44} />
+            <span className="brand__name">
+              Book Vault
+              <span className="brand__tagline">Personal library</span>
             </span>
-            Book Vault
           </NavLink>
           <nav aria-label="Main">
             <NavLink to="/" end className="nav-link">
@@ -29,7 +34,10 @@ function Layout() {
         </div>
       </header>
       <main id="main" className="container">
-        <Outlet />
+        {/* A crash in one page shows a fallback there; the header keeps working. */}
+        <ErrorBoundary resetKey={pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </>
   );
@@ -37,13 +45,15 @@ function Layout() {
 
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route index element={<BookListPage />} />
-        <Route path="books/new" element={<AddBookPage />} />
-        <Route path="books/:id" element={<BookDetailPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <ToastProvider>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<BookListPage />} />
+          <Route path="books/new" element={<AddBookPage />} />
+          <Route path="books/:id" element={<BookDetailPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </ToastProvider>
   );
 }

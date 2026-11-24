@@ -31,8 +31,10 @@ export function useBook(id: number) {
   const setBook = useCallback((book: Book) => setResult((prev) => ({ ...prev, book })), []);
 
   return {
-    book: loading ? undefined : result.book,
-    error: loading ? undefined : result.error,
+    // Both kept while reloading: the last error stays up (as "Retrying…") until a
+    // request succeeds, matching useBooks.
+    book: result.book,
+    error: result.error,
     loading,
     reload,
     setBook,
