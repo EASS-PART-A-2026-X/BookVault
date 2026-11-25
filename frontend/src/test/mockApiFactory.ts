@@ -35,6 +35,7 @@ export default async function mockApiModule() {
     removeFollower: vi.fn(),
     listFollowRequests: vi.fn(),
     answerFollowRequest: vi.fn(),
+    askVault: vi.fn(),
     // Real behaviour, but spied, so tests can grab and fire the 401 handler.
     setUnauthorizedHandler: vi.fn(actual.setUnauthorizedHandler),
   };

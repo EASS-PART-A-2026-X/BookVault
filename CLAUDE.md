@@ -1,7 +1,8 @@
 # CLAUDE.md
 
-Book Vault: a FastAPI + SQLite backend (`book-vault/`, EX1) and a React + TypeScript SPA
-(`frontend/`, EX2), run together with Docker Compose. Users have accounts (cookie
+Book Vault: a FastAPI + SQLite backend (`book-vault/`, EX1), a React + TypeScript SPA
+(`frontend/`, EX2) and a Pydantic AI service (`ai-service/`, EX3: plain-English search),
+run together with Docker Compose. Users have accounts (cookie
 sessions), private per-user books, and social features (search, profiles, follow /
 follow requests). Backend conventions live in
 [book-vault/CLAUDE.md](book-vault/CLAUDE.md); this file covers the frontend and the repo.
@@ -10,6 +11,7 @@ follow requests). Backend conventions live in
 
 ```bash
 # Whole stack (repo root) -> http://localhost:8080, API docs at /api/docs
+cp .env.example .env                 # optional: real model + key; unset AI_MODEL = fake model
 docker compose up --build            # -d --wait to run in the background
 docker compose down                  # keeps data; add -v to delete the volume
 
@@ -19,13 +21,19 @@ uv run uvicorn app.main:app --reload # http://localhost:8000
 uv run pytest -v
 uv run ruff check . && uv run ruff format --check .
 
+# AI service (ai-service/)
+uv sync
+AI_MODEL=fake uv run uvicorn app.main:app --reload --port 8100
+uv run pytest -v --cov=app           # no key: TestModel / FunctionModel / fake model
+uv run ruff check . && uv run ruff format --check .
+
 # Frontend (frontend/)
 npm ci
-npm run dev                          # http://localhost:5173, proxies /api to :8000
+npm run dev                          # http://localhost:5173, proxies /api/ai to :8100, /api to :8000
 npm run lint                         # ESLint + Prettier check (npm run format to fix)
 npm run typecheck                    # app, node config and e2e tsconfigs
 npm test                             # Vitest + React Testing Library
-npm run test:e2e                     # Playwright vs the real backend (needs uv on PATH)
+npm run test:e2e                     # Playwright vs the real backend + AI service (fake model; needs uv)
 npm run build                        # typecheck + production build to dist/
 # Regenerate docs/proof/social screenshots on a throwaway stack (never your real data):
 FRONTEND_PORT=8090 docker compose -p bvproof up --build -d --wait     # repo root
@@ -45,7 +53,8 @@ src/
   social/             request-count context (header badge)
   types.ts            API types mirroring book-vault/app/schemas.py (GENRES, limits, normalizeTrope)
   pages/              BookListPage, AddBookPage, BookDetailPage, NotFoundPage, LoginPage,
-                      RegisterPage, PeoplePage, ProfilePage, RequestsPage, SettingsPage
+                      RegisterPage, PeoplePage, ProfilePage, RequestsPage, SettingsPage,
+                      AskPage (AI search via askVault -> /api/ai/search)
   components/         BookForm, TropeInput, Filters, BookCard, ReviewCard, StarRating,
                       FollowButton, Avatar, TextField, ConfirmDialog, ErrorBanner, EmptyState,
                       Spinner, ErrorBoundary, VaultLogo
@@ -56,7 +65,8 @@ src/
   toast/              ToastProvider + useToast
   test/               setup, fixtures (makeBook), renderApp, mockApi / mockApiFactory
 e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.spec.ts
-                      (three readers in separate browser contexts), helpers.ts, env.ts
+                      (three readers in separate browser contexts), ai-search.spec.ts
+                      (AI search through the real AI service), helpers.ts, env.ts
 ```
 
 ## Frontend conventions
@@ -76,6 +86,9 @@ e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.
   under `<PublicOnly>`. Read the user with `useAuth()`. Never store tokens in JS — the
   cookie is httpOnly. While the session check is loading or failed, show neither logged-in
   nor logged-out UI.
+- **AI search errors** go through `describeAiError()`: unlike the backend, the AI service
+  sends its own JSON 502/503/504 (provider error, not configured, timeout), so show its
+  message instead of "can't reach the server".
 - **Social visibility is the server's call** (`can_view_books`); the UI only reflects
   `can_view_books` / `follow_status` from the API and treats 403 as "private".
 - **New data views** use `useResource(key, fetcher)` instead of hand-rolled effects.
@@ -100,9 +113,20 @@ e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.
 - e2e: create users with `signUp(page, name)` from `e2e/helpers.ts`; use `page.request`
   with `/api/...` paths (it shares the browser's login cookie); usernames must be unique
   across the run (one database per run).
-- The e2e flow runs on its own ports (API 8001, web 5174) with a SQLite file that is deleted
+- The e2e flow runs on its own ports (API 8001, AI 8101 with `AI_MODEL=fake`, web 5174) with a SQLite file that is deleted
   on every start (`e2e/.tmp/`, gitignored). `reuseExistingServer` is off on purpose.
 - When fixing a bug, add a test that fails without the fix.
+
+## AI service conventions (`ai-service/`)
+
+- It never opens the database: every read goes through the backend API with the reader's
+  own `bv_session` cookie (`app/backend.py`), so ownership and privacy stay in one place.
+- The model comes only from `AI_MODEL` (+ the provider's key env var). `fake` = offline
+  keyword model (`app/fake_model.py`) for tests, e2e, CI and key-less demos.
+- `SearchPlan` mirrors the backend's filters (`Genre`, rating 1–5, trope rules); keep
+  them in sync with `book-vault/app/schemas.py`.
+- Every failure maps to a status + user-facing message in `app/main.py`; never return a
+  provider's error body. Tests use `TestModel` / `FunctionModel`, never a real key.
 
 ## Before finishing any change
 
@@ -110,6 +134,7 @@ All of these must pass:
 
 ```bash
 (cd book-vault && uv run pytest -q && uv run ruff check . && uv run ruff format --check .)
+(cd ai-service && uv run pytest -q && uv run ruff check . && uv run ruff format --check .)
 (cd frontend && npm run lint && npm run typecheck && npm test && npm run test:e2e)
 ```
 

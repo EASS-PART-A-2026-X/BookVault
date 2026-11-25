@@ -153,3 +153,25 @@ export interface FollowRequest {
   display_name: string;
   requested_at: string;
 }
+
+// ---- AI search (ai-service/app/schemas.py) ----------------------------------
+
+/** Longest question the AI service accepts (QUESTION_MAX_LENGTH). */
+export const QUESTION_MAX_LENGTH = 300;
+
+/** The filters the AI read from a question (SearchPlan). Null = not asked for. */
+export interface SearchPlan {
+  genre: Genre | null;
+  read_status: 'read' | 'unread' | null;
+  min_rating: number | null;
+  trope: string | null;
+  /** Author or title words, matched by the AI service (not a list filter). */
+  text: string | null;
+  explanation: string;
+}
+
+/** POST /api/ai/search response. */
+export interface AiSearchResult {
+  plan: SearchPlan;
+  books: Book[];
+}

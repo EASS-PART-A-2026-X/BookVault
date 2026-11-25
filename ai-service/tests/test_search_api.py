@@ -49,7 +49,7 @@ def test_search_returns_the_plan_and_matching_books(make_client: MakeClient) -> 
         "explanation": "Cozy picks.",
     }
     assert [b["title"] for b in body["books"]] == ["Legends & Lattes"]
-    assert "review" not in body["books"][0]
+    assert set(body["books"][0]) >= {"review", "created_at", "updated_at"}
 
 
 def test_search_by_author_text(make_client: MakeClient) -> None:

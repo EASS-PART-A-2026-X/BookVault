@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-from app.schemas import BookSummary, SearchPlan
+from app.schemas import SearchPlan, VaultBook
 
 SESSION_COOKIE = "bv_session"
 
@@ -26,7 +26,7 @@ class NotLoggedIn(BackendError):
     """The backend rejected the reader's session (401)."""
 
 
-_books = TypeAdapter(list[BookSummary])
+_books = TypeAdapter(list[VaultBook])
 _tropes = TypeAdapter(list[dict[str, object]])
 
 
@@ -44,7 +44,7 @@ def plan_to_params(plan: SearchPlan) -> dict[str, str | int]:
     return params
 
 
-def matches_text(book: BookSummary, text: str | None) -> bool:
+def matches_text(book: VaultBook, text: str | None) -> bool:
     """Every word of `text` appears in the title or author (case-insensitive)."""
     if not text:
         return True
@@ -85,7 +85,7 @@ class VaultClient:
         except (ValidationError, KeyError) as exc:
             raise BackendUnavailable("Unexpected /tropes response") from exc
 
-    async def search(self, plan: SearchPlan) -> list[BookSummary]:
+    async def search(self, plan: SearchPlan) -> list[VaultBook]:
         """Run the plan: the backend filters, then the title/author text match here."""
         try:
             books = _books.validate_python(await self._get("/books", plan_to_params(plan)))

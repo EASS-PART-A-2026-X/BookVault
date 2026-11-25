@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { VaultLogo } from './components/VaultLogo';
 import { describeError } from './lib/errors';
 import { AddBookPage } from './pages/AddBookPage';
+import { AskPage } from './pages/AskPage';
 import { BookDetailPage } from './pages/BookDetailPage';
 import { BookListPage } from './pages/BookListPage';
 import { LoginPage } from './pages/LoginPage';
@@ -102,6 +103,9 @@ function Layout() {
                 <NavLink to="/" end className="nav-link">
                   Books
                 </NavLink>
+                <NavLink to="/ask" className="nav-link">
+                  Ask
+                </NavLink>
                 <NavLink to="/people" className="nav-link">
                   People
                 </NavLink>
@@ -147,6 +151,7 @@ export function AppRoutes() {
               <Route index element={<BookListPage />} />
               <Route path="books/new" element={<AddBookPage />} />
               <Route path="books/:id" element={<BookDetailPage />} />
+              <Route path="ask" element={<AskPage />} />
               <Route path="people" element={<PeoplePage />} />
               <Route path="u/:username" element={<ProfilePage />} />
               <Route path="requests" element={<RequestsPage />} />

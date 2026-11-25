@@ -1,4 +1,4 @@
-import { describeError } from '../lib/errors';
+import { describeError, type DescribedError } from '../lib/errors';
 
 interface Props {
   error: unknown;
@@ -6,11 +6,13 @@ interface Props {
   onRetry?: () => void;
   /** A retry is in flight: the button is disabled and says so. */
   retrying?: boolean;
+  /** How to turn the error into text (default: describeError). */
+  describe?: (error: unknown) => DescribedError;
 }
 
 /** A clear, recoverable error message, e.g. when the backend is down. */
-export function ErrorBanner({ error, onRetry, retrying = false }: Props) {
-  const { kind, title, message, retryable } = describeError(error);
+export function ErrorBanner({ error, onRetry, retrying = false, describe = describeError }: Props) {
+  const { kind, title, message, retryable } = describe(error);
   return (
     <div className={`banner banner--error banner--${kind}`} role="alert">
       <span className="banner__icon" aria-hidden="true">

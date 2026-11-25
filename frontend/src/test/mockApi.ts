@@ -34,6 +34,7 @@ export const mocked = {
   removeFollower: vi.mocked(api.removeFollower),
   listFollowRequests: vi.mocked(api.listFollowRequests),
   answerFollowRequest: vi.mocked(api.answerFollowRequest),
+  askVault: vi.mocked(api.askVault),
   setUnauthorizedHandler: vi.mocked(api.setUnauthorizedHandler),
 };
 

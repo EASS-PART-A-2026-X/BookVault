@@ -4,9 +4,12 @@
 #   docker compose down            # stop (data is kept in the named volume)
 #   docker compose down -v         # stop and delete the data
 #
-# The browser only talks to the frontend container. nginx serves the React app
-# and proxies /api/* to the backend over the internal network, so the API is
-# same-origin (no CORS) and the backend port isn't published.
+# The browser only talks to the frontend container. nginx serves the React app,
+# proxies /api/ai/* to the AI service and /api/* to the backend, all over one
+# internal network: the API is same-origin (no CORS) and only port 8080 is published.
+#
+# Settings come from .env (copy .env.example). With no .env the AI service runs the
+# offline keyword model (AI_MODEL=fake), so a fresh clone works without any key.
 
 name: book-vault
 
@@ -29,6 +32,8 @@ services:
       CORS_ORIGINS: ""
     volumes:
       - book-vault-data:/app/data
+    networks:
+      - bookvault
     expose:
       - "8000"
     healthcheck:
@@ -44,6 +49,36 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  ai-service:
+    build: ./ai-service
+    environment:
+      BACKEND_URL: http://backend:8000
+      # Unset -> fake (offline keyword model). Set to empty to switch AI off.
+      AI_MODEL: ${AI_MODEL-fake}
+      # Empty unless set in .env; only the provider named in AI_MODEL needs its key.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-20}
+      BACKEND_TIMEOUT_SECONDS: ${BACKEND_TIMEOUT_SECONDS:-5}
+    networks:
+      - bookvault
+    expose:
+      - "8100"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # 200 whenever the service runs; the body says whether AI and the backend are ready.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(urllib.request.urlopen('http://127.0.0.1:8100/health', timeout=3).status != 200)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -51,10 +86,18 @@ services:
         VITE_API_URL: /api
     ports:
       - "${FRONTEND_PORT:-8080}:80"
+    networks:
+      - bookvault
     depends_on:
       backend:
         condition: service_healthy
+      ai-service:
+        condition: service_healthy
     restart: unless-stopped
+
+networks:
+  # One shared network; services reach each other by name (backend, ai-service).
+  bookvault:
 
 volumes:
   # SQLite lives here and survives `docker compose down` / `up`.

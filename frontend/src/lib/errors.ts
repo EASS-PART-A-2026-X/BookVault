@@ -135,3 +135,29 @@ export function mapIssuesToFields<F extends string>(
   }
   return { fieldErrors, formErrors };
 }
+
+/**
+ * Errors from AI search. The AI service answers its own 502 / 503 / 504 with a JSON
+ * message (provider failed, AI not configured, model timed out), so unlike the
+ * backend a 502/504 here does NOT mean "can't reach the server": show its message.
+ * Anything without a JSON message falls back to describeError.
+ */
+export function describeAiError(error: unknown): DescribedError {
+  if (error instanceof ValidationError) {
+    return {
+      kind: 'validation',
+      title: 'Check your question',
+      message: 'Ask a question of up to 300 characters.',
+      retryable: false,
+    };
+  }
+  if (error instanceof ApiError && error.status >= 500 && typeof error.detail === 'string') {
+    return {
+      kind: 'server',
+      title: 'AI search is unavailable',
+      message: error.detail,
+      retryable: true,
+    };
+  }
+  return describeError(error);
+}

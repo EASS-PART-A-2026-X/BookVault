@@ -4,6 +4,8 @@ import { defineConfig } from 'vite';
 
 // Where the dev server forwards /api (the backend). Override for e2e runs.
 const apiTarget = process.env.API_PROXY_TARGET ?? 'http://localhost:8000';
+// Where the dev server forwards /api/ai (the AI service).
+const aiTarget = process.env.AI_PROXY_TARGET ?? 'http://localhost:8100';
 
 export default defineConfig({
   plugins: [react()],
@@ -15,6 +17,12 @@ export default defineConfig({
     // the dev server forwards it to the backend (prefix stripped). One origin means
     // the session cookie just works and no CORS is involved.
     proxy: {
+      // More specific first: /api/ai/search -> AI service /search.
+      '/api/ai': {
+        target: aiTarget,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/ai/, ''),
+      },
       '/api': {
         target: apiTarget,
         changeOrigin: true,

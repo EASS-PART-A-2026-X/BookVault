@@ -1,11 +1,22 @@
 import { defineConfig, devices } from '@playwright/test';
-import { API_PORT, API_URL, BACKEND_DIR, DB_FILE, WEB_PORT, WEB_URL } from './e2e/env';
+import {
+  AI_DIR,
+  AI_PORT,
+  AI_URL,
+  API_PORT,
+  API_URL,
+  BACKEND_DIR,
+  DB_FILE,
+  WEB_PORT,
+  WEB_URL,
+} from './e2e/env';
 
 const isCI = Boolean(process.env.CI);
 
 /**
- * `npm run test:e2e` starts the REAL backend on a fresh SQLite file and the Vite dev
- * server pointed at it, runs the flow in Chromium, then shuts both down.
+ * `npm run test:e2e` starts the REAL backend on a fresh SQLite file, the REAL AI service
+ * (with the offline keyword model, AI_MODEL=fake: no key, same answer every run) and the
+ * Vite dev server pointed at both, runs the flows in Chromium, then shuts them down.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -48,11 +59,22 @@ export default defineConfig({
       stderr: 'pipe',
     },
     {
+      name: 'ai-service',
+      command: `exec uv run uvicorn app.main:app --port ${AI_PORT}`,
+      cwd: AI_DIR,
+      url: `${AI_URL}/health`,
+      env: { BACKEND_URL: API_URL, AI_MODEL: 'fake', PYDANTIC_AI_NO_BANNER: '1' },
+      reuseExistingServer: false,
+      timeout: 60_000,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+    {
       name: 'frontend',
       command: `npm run dev -- --port ${WEB_PORT} --strictPort`,
       url: WEB_URL,
       // Same-origin like Docker: the browser calls /api and Vite forwards it to :8001.
-      env: { VITE_API_URL: '/api', API_PROXY_TARGET: API_URL },
+      env: { VITE_API_URL: '/api', API_PROXY_TARGET: API_URL, AI_PROXY_TARGET: AI_URL },
       reuseExistingServer: false,
       timeout: 60_000,
       stdout: 'ignore',

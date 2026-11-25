@@ -10,7 +10,7 @@ from app.backend import (
     matches_text,
     plan_to_params,
 )
-from app.schemas import BookSummary, Genre, SearchPlan
+from app.schemas import Genre, SearchPlan, VaultBook
 from tests.conftest import SESSION, FakeBackend
 
 pytestmark = pytest.mark.anyio
@@ -47,14 +47,17 @@ def test_full_plan_uses_the_backend_filter_names() -> None:
     [(None, True), ("tolkien", True), ("HOBBIT tolkien", True), ("herbert", False)],
 )
 def test_matches_text_on_title_and_author(text: str | None, expected: bool) -> None:
-    hobbit = BookSummary(
+    hobbit = VaultBook(
         id=1,
         title="The Hobbit",
         author="J.R.R. Tolkien",
         genre=Genre.FANTASY,
         rating=None,
         is_read=False,
+        review=None,
         tropes=[],
+        created_at="2026-11-25T10:00:00",
+        updated_at="2026-11-25T10:00:00",
     )
     assert matches_text(hobbit, text) is expected
 

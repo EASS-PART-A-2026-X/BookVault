@@ -1887,3 +1887,59 @@ a.user-menu__name.active {
   height: 18px;
   flex: none;
 }
+
+/* ---- Ask your vault (AI search) -------------------------------------------- */
+
+.ask-form {
+  display: grid;
+  /* minmax(0, 1fr): a long example button wraps instead of widening the card. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.ask-form__row {
+  display: flex;
+  gap: 10px;
+}
+
+.ask-form__row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+
+.ask-form__examples {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ask-form__examples .btn {
+  white-space: normal;
+  text-align: left;
+}
+
+.ask-result {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.ask-plan {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.ask-plan p {
+  margin: 0;
+}
+
+@media (max-width: 420px) {
+  .ask-form__row {
+    flex-direction: column;
+  }
+}

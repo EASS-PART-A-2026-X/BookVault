@@ -104,8 +104,8 @@ class SearchRequest(BaseModel):
     question: Question = Field(examples=["unread fantasy with found family"])
 
 
-class BookSummary(BaseModel):
-    """The fields of the backend's BookRead that a search result shows."""
+class VaultBook(BaseModel):
+    """A book exactly as the backend's BookRead returns it (the frontend's Book type)."""
 
     id: int
     title: str
@@ -113,12 +113,15 @@ class BookSummary(BaseModel):
     genre: Genre
     rating: int | None
     is_read: bool
+    review: str | None
     tropes: list[str]
+    created_at: str
+    updated_at: str
 
 
 class SearchResponse(BaseModel):
     plan: SearchPlan
-    books: list[BookSummary]
+    books: list[VaultBook]
 
 
 class ErrorResponse(BaseModel):

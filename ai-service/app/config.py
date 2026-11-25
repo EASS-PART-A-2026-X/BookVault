@@ -22,7 +22,8 @@ class ConfigError(ValueError):
 @dataclass(frozen=True)
 class Settings:
     backend_url: str
-    # Pydantic AI model name, e.g. "anthropic:claude-haiku-5-5". None = AI disabled.
+    # Pydantic AI model name, e.g. "anthropic:claude-haiku-5-5", or "fake" (offline
+    # keyword model). None = AI disabled.
     ai_model: str | None
     ai_timeout_seconds: float
     backend_timeout_seconds: float
@@ -64,6 +65,8 @@ class ModelStatus:
     reason: str | None
 
 
+# AI_MODEL=fake: offline keyword model (app/fake_model.py) for tests, CI and key-less demos.
+FAKE_MODEL = "fake"
 AI_NOT_CONFIGURED = "AI is not configured: set AI_MODEL (see .env.example)"
 
 
@@ -75,6 +78,10 @@ def resolve_model(settings: Settings) -> ModelStatus:
     """
     if settings.ai_model is None:
         return ModelStatus(model=None, reason=AI_NOT_CONFIGURED)
+    if settings.ai_model == FAKE_MODEL:
+        from app.fake_model import fake_model
+
+        return ModelStatus(model=fake_model(), reason=None)
     try:
         return ModelStatus(model=infer_model(settings.ai_model), reason=None)
     except UserError as exc:

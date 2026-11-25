@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, NetworkError, ValidationError } from '../api/books';
-import { describeError, isNotFound, mapValidationIssues } from './errors';
+import { describeAiError, describeError, isNotFound, mapValidationIssues } from './errors';
 
 describe('mapValidationIssues', () => {
   it('maps body field errors to their fields', () => {
@@ -111,5 +111,13 @@ describe('describeError', () => {
     expect(isNotFound(new ApiError(404, 'x', 'x'))).toBe(true);
     expect(isNotFound(new ApiError(500, 'x', 'x'))).toBe(false);
     expect(isNotFound(new Error('x'))).toBe(false);
+  });
+});
+
+describe('describeAiError', () => {
+  it('uses describeError for errors without a JSON message', () => {
+    const plain = new ApiError(502, 'Request failed (HTTP 502)', undefined);
+    expect(describeAiError(plain)).toEqual(describeError(plain));
+    expect(describeAiError(new ApiError(404, 'Nope', 'Nope')).kind).toBe('not-found');
   });
 });

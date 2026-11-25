@@ -3,6 +3,7 @@
  * functions and error classes, so components never call fetch directly.
  */
 import type {
+  AiSearchResult,
   Book,
   BookCreate,
   BookFilters,
@@ -258,6 +259,13 @@ export async function answerFollowRequest(
   await request<undefined>(`/follow-requests/${encodeURIComponent(username)}/${answer}`, {
     method: 'POST',
   });
+}
+
+// ---- AI search (the AI service, behind /api/ai) ------------------------------
+
+/** Ask a question in plain English; the AI service turns it into filters and runs them. */
+export function askVault(question: string, signal?: AbortSignal): Promise<AiSearchResult> {
+  return request<AiSearchResult>('/ai/search', jsonInit('POST', { question }, signal));
 }
 
 export function isAbortError(error: unknown): boolean {
