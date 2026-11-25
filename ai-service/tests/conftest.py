@@ -5,6 +5,7 @@ httpx.MockTransport and the model is Pydantic AI's TestModel or FunctionModel.
 """
 
 import os
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
@@ -81,6 +82,8 @@ class FakeBackend:
             return httpx.Response(200, json={"status": "ok"})
         if request.headers.get("cookie") != f"{SESSION_COOKIE}={SESSION}":
             return httpx.Response(401, json={"detail": "Not authenticated"})
+        if path == "/auth/me":
+            return httpx.Response(200, json={"id": 1, "username": "reader"})
         if path == "/tropes":
             counts: dict[str, int] = {}
             for item in self.books:
@@ -127,7 +130,7 @@ MakeClient = Callable[..., TestClient]
 
 @pytest.fixture
 def make_client(backend: FakeBackend) -> Iterator[MakeClient]:
-    """make_client(backend=handler, model=Model, logged_in=True, **settings) -> TestClient.
+    """make_client(backend=handler, model=Model, logged_in=True, clock=fn, **settings).
 
     `model` replaces the model resolved from AI_MODEL (e.g. a FunctionModel)."""
     opened: list[TestClient] = []
@@ -136,9 +139,10 @@ def make_client(backend: FakeBackend) -> Iterator[MakeClient]:
         backend: BackendHandler = backend,
         model: Model | None = None,
         logged_in: bool = True,
+        clock: Callable[[], float] = time.monotonic,
         **overrides: object,
     ) -> TestClient:
-        app = create_app(make_settings(**overrides), httpx.MockTransport(backend))
+        app = create_app(make_settings(**overrides), httpx.MockTransport(backend), clock)
         client = TestClient(app)
         client.__enter__()  # run the lifespan
         if model is not None:

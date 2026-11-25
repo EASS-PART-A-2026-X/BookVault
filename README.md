@@ -33,10 +33,10 @@ EX2 [docs/proof/ex2/PROOF-EX2.md](docs/proof/ex2/PROOF-EX2.md), EX1
 | # | Requirement | Where | How to check |
 |---|---|---|---|
 | 1 | Three application services | [`frontend/`](frontend/) (React + nginx), [`book-vault/`](book-vault/) (FastAPI + SQLite), [`ai-service/`](ai-service/) (FastAPI + Pydantic AI). Each has its own Dockerfile, `/health` and env config. | `docker compose ps` |
-| 2 | Pydantic AI functionality | [`ai-service/app/agent.py`](ai-service/app/agent.py): typed `output_type=SearchPlan`, the `list_my_tropes` tool that reads the reader's data through the backend, an output validator with `ModelRetry`, a timeout and a usage cap. Every error maps to a clear status: [error table](ai-service/README.md#post-search). Provider and key come only from env; the `fake` model works offline. | The **Ask** page |
+| 2 | Pydantic AI functionality | [`ai-service/app/agent.py`](ai-service/app/agent.py): typed `output_type=SearchPlan`, the `list_my_tropes` tool that reads the reader's data through the backend, an output validator with `ModelRetry`, a timeout, a usage cap, and search limits per reader and for everyone ([`limits.py`](ai-service/app/limits.py)). Every error maps to a clear status: [error table](ai-service/README.md#post-search). Provider and key come only from env; the `fake` model works offline. | The **Ask** page |
 | 3 | Docker Compose | [`docker-compose.yml`](docker-compose.yml): healthchecks, `depends_on` with `service_healthy` and `service_completed_successfully`, a named volume, one shared network | `docker compose up --build -d --wait` |
 | 4 | Persistent data initialization | [`book-vault/app/seed.py`](book-vault/app/seed.py): an idempotent one-shot `seed` job (3 readers, 20 books), only into an empty database, in one transaction, no hard-coded password | `docker compose logs seed` |
-| 5 | Automated tests and failure tests | Backend 239 tests, AI service 92 (100% coverage, `TestModel` / `FunctionModel`, no key), frontend 158 Vitest and 6 Playwright e2e. Failure tests cover database down, provider error, timeout, invalid input, missing or invalid env and bad model output: [`test_failures.py`](book-vault/tests/test_failures.py), [`test_search_api.py`](ai-service/tests/test_search_api.py), [`test_config.py`](ai-service/tests/test_config.py), and [`scripts/smoke-test.sh`](scripts/smoke-test.sh) on a real stack | [Run all tests](#c-run-all-tests) |
+| 5 | Automated tests and failure tests | Backend 239 tests, AI service 123 (100% coverage, `TestModel` / `FunctionModel`, no key), frontend 160 Vitest and 6 Playwright e2e. Failure tests cover database down, provider error, timeout, invalid input, missing or invalid env and bad model output: [`test_failures.py`](book-vault/tests/test_failures.py), [`test_search_api.py`](ai-service/tests/test_search_api.py), [`test_config.py`](ai-service/tests/test_config.py), and [`scripts/smoke-test.sh`](scripts/smoke-test.sh) on a real stack | [Run all tests](#c-run-all-tests) |
 | 6 | Basic CI | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): lint and tests for each service, e2e, `docker compose build` and the smoke test. No secrets. | GitHub Actions tab |
 | 7 | AI eval dataset and results | [`eval/dataset.jsonl`](eval/dataset.jsonl) (26 cases), [`eval/run_eval.py`](eval/run_eval.py), [`eval/results.md`](eval/results.md). Claude Haiku returns the right books for **92%** of questions, against 81% for the keyword baseline, with failure examples and conclusions. | `uv run python ../eval/run_eval.py --model fake` |
 | 8 | Live demo | [`docs/deploy.md`](docs/deploy.md): a VM running the same Compose stack, plus [`docker-compose.prod.yml`](docker-compose.prod.yml) (Caddy HTTPS, secure cookie) | The URL above |
@@ -168,6 +168,7 @@ Configuration (all optional):
 | `AI_MODEL` | AI service | empty: AI off (`fake` in Compose) | Pydantic AI model, e.g. `anthropic:claude-haiku-5-5`, or `fake` |
 | `ANTHROPIC_API_KEY` | AI service | | Key for an `anthropic:` model |
 | `AI_TIMEOUT_SECONDS`, `BACKEND_TIMEOUT_SECONDS` | AI service | `20`, `5` | Time limits for the model and the backend |
+| `AI_LIMIT_PER_MINUTE`, `AI_LIMIT_PER_DAY`, `AI_LIMIT_GLOBAL_PER_DAY` | AI service | `10`, `100`, `500` | Search limits per reader and for everyone (0 = off) |
 | `BACKEND_URL` | AI service | `http://localhost:8000` | Where the backend is |
 | `VITE_API_URL` | frontend (dev/build time) | `/api` | API base URL. See `frontend/.env.example` |
 | `API_PROXY_TARGET`, `AI_PROXY_TARGET` | frontend (dev server) | `:8000`, `:8100` | Where Vite forwards `/api` and `/api/ai` |
@@ -187,7 +188,7 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-**AI service**: pytest (92 tests, 100% coverage) and ruff. No API key is needed: the
+**AI service**: pytest (123 tests, 100% coverage) and ruff. No API key is needed: the
 tests use Pydantic AI's `TestModel` / `FunctionModel` and a fake backend.
 
 ```bash
@@ -198,7 +199,7 @@ uv run ruff format --check . ../eval
 ```
 
 **Frontend**: lint (ESLint + Prettier), typecheck, and Vitest + React Testing Library
-(158 tests).
+(160 tests).
 
 ```bash
 cd frontend
@@ -232,7 +233,7 @@ On failure, Playwright keeps a screenshot, a video and a trace in `frontend/test
 (`npx playwright show-trace <path>/trace.zip`).
 
 **Whole stack**: [`scripts/smoke-test.sh`](scripts/smoke-test.sh) builds a throwaway
-Compose project and runs 33 checks, including failure drills (backend down, AI service
+Compose project and runs 37 checks, including failure drills (backend down, AI service
 down), then removes it. **CI** runs all of the above on every push.
 
 **AI eval**: see [eval/results.md](eval/results.md) for how to rerun it.
@@ -243,7 +244,7 @@ down), then removes it. **CI** runs all of the above on every push.
 |---|---|
 | **Book list** | Cards with title, author, genre, read status, star rating and trope chips; responsive down to phone width |
 | **Filters** | Genre, read/unread, minimum rating and trope — combined, and kept in the URL so they survive a refresh |
-| **AI search** | **Ask** in plain English. The AI turns the question into the same filters (shown as chips), returns the matching books, and can open those filters in the list. Clear messages when the AI is off, slow or failing; the rest of the app keeps working. |
+| **AI search** | **Ask** in plain English. The AI turns the question into the same filters (shown as chips), returns the matching books, and can open those filters in the list. Clear messages when the AI is off, slow or failing, or a search limit is reached (10 a minute, 100 a day per reader); the rest of the app keeps working. |
 | **Add / edit** | One form for both; tropes as tags with suggestions; quick "mark as read" and star rating on the detail page |
 | **Delete** | Confirmed in an in-app dialog |
 | **Loading & errors** | Spinners and disabled buttons while saving; empty vault vs. "no matches" states; inline validation that mirrors the API; server `422`s shown next to each field; "Book not found" page; "Can't reach the server" banner with Retry; success toasts; error boundaries |

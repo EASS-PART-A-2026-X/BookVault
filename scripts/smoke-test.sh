@@ -19,7 +19,10 @@ WORK="$(mktemp -d)"
 JAR="${WORK}/cookies.txt"
 FAILED=0
 
+# A low per-minute AI limit, so the limit drill in step 4 is quick. (The counters are in
+# memory: restarting the AI service in that step resets them.)
 export FRONTEND_PORT="$PORT" AI_MODEL=fake DEMO_PASSWORD="$PASSWORD" SEED_DEMO_DATA=true
+export AI_LIMIT_PER_MINUTE=2
 compose() { docker compose -p "$PROJECT" "$@"; }
 
 cleanup() {
@@ -106,6 +109,13 @@ ask "fantasy";                   check "AI service down: JSON 503" 503 "$STATUS"
 request GET /api/books;          check "AI service down: books still work" 200 "$STATUS"
 compose up -d --wait ai-service >/dev/null 2>&1
 ask "fantasy";                   check "AI service back" 200 "$STATUS"
+ask "mystery";                   check "AI search within the limit" 200 "$STATUS"
+request POST /api/ai/search '{"question": "romance"}'
+retry_after="$(curl -s -o /dev/null -D - -b "$JAR" -H 'Content-Type: application/json' \
+  -d '{"question": "thriller"}' "${BASE}/api/ai/search" | tr -d '\r' | sed -n 's/^[Rr]etry-[Aa]fter: //p')"
+check "AI search over the per-minute limit is a 429" 429 "$STATUS" "$BODY" 'asking too fast'
+check "the 429 says when to retry (Retry-After)" ok "$([[ "$retry_after" =~ ^[0-9]+$ ]] && echo ok || echo "header: '$retry_after'")"
+request GET /api/books;          check "the limit doesn't block the rest of the app" 200 "$STATUS"
 
 echo "== 5. Password reset by email (EMAIL_BACKEND=console: the link is in the backend log)"
 SAVED_JAR="${WORK}/demo-jar"; cp "$JAR" "$SAVED_JAR"; : >"$JAR"

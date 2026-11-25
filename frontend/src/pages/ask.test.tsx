@@ -153,6 +153,19 @@ describe('ask your vault: errors', () => {
     },
   );
 
+  it('explains a search limit (429) and how long to wait', async () => {
+    const detail = "You're asking too fast. Try again in 30 seconds.";
+    askVault.mockRejectedValue(new ApiError(429, detail, detail));
+    const { user } = await renderApp('/ask');
+    await user.type(screen.getByLabelText('Your question'), 'anything');
+    await user.click(screen.getByRole('button', { name: 'Ask' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText('AI search limit reached')).toBeInTheDocument();
+    expect(within(alert).getByText(detail)).toBeInTheDocument();
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+
   it('retries the same question', async () => {
     askVault
       .mockRejectedValueOnce(new ApiError(504, 'Too slow', 'Too slow'))

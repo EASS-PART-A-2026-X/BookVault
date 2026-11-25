@@ -137,7 +137,7 @@ export function mapIssuesToFields<F extends string>(
 }
 
 /**
- * Errors from AI search. The AI service answers its own 502 / 503 / 504 with a JSON
+ * Errors from AI search. The AI service answers its own 429 / 502 / 503 / 504 with a JSON
  * message (provider failed, AI not configured, model timed out), so unlike the
  * backend a 502/504 here does NOT mean "can't reach the server": show its message.
  * Anything without a JSON message falls back to describeError.
@@ -149,6 +149,15 @@ export function describeAiError(error: unknown): DescribedError {
       title: 'Check your question',
       message: 'Ask a question of up to 300 characters.',
       retryable: false,
+    };
+  }
+  if (error instanceof ApiError && error.status === 429 && typeof error.detail === 'string') {
+    // Search limits (per minute, per day, or for everyone): the message says how long.
+    return {
+      kind: 'server',
+      title: 'AI search limit reached',
+      message: error.detail,
+      retryable: true,
     };
   }
   if (error instanceof ApiError && error.status >= 500 && typeof error.detail === 'string') {

@@ -139,7 +139,9 @@ as above. Reset links automatically point at `https://SITE_ADDRESS`.
   RUNBOOK).
 - **Backups, logs, incidents, key rotation:** [RUNBOOK.md](../RUNBOOK.md). Every
   command works on the server as is.
-- **Spending:** check the provider's usage page now and then. If the AI is being abused,
+- **Spending:** AI search is capped at 10 searches per reader per minute, 100 per reader
+  per day, and 500 per day for everyone (`AI_LIMIT_*` in `.env`). That puts a ceiling on
+  daily cost however many people sign up. Still, check the provider's usage page now and then. If the AI is being abused,
   set `AI_MODEL=fake` and run `docker compose up -d --wait`. The demo keeps working
   without cost.
 - **Reset the demo data** (e.g. after visitors have changed it): back up, then delete

@@ -92,8 +92,8 @@ e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.
   cookie is httpOnly. While the session check is loading or failed, show neither logged-in
   nor logged-out UI.
 - **AI search errors** go through `describeAiError()`: unlike the backend, the AI service
-  sends its own JSON 502/503/504 (provider error, not configured, timeout), so show its
-  message instead of "can't reach the server".
+  sends its own JSON 429/502/503/504 (search limit, provider error, not configured,
+  timeout), so show its message instead of "can't reach the server".
 - **Password reset:** the email is private (only in the own-account `User`); reset/forgot
   pages never reveal whether an address has an account. Wrong current password is a 400
   (not 401, which would end the session). `/reset-password` is outside the auth guards so
@@ -135,7 +135,10 @@ e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.
 - `SearchPlan` mirrors the backend's filters (`Genre`, rating 1–5, trope rules); keep
   them in sync with `book-vault/app/schemas.py`.
 - Every failure maps to a status + user-facing message in `app/main.py`; never return a
-  provider's error body. Tests use `TestModel` / `FunctionModel`, never a real key.
+  provider's error body.
+- Search limits (`app/limits.py`, `AI_LIMIT_*`) are checked after `/auth/me` and before the
+  model; only searches that reach the model count. Tests drive them with a fake `clock`.
+  The fake backend in `tests/conftest.py` must answer `/auth/me`. Tests use `TestModel` / `FunctionModel`, never a real key.
 
 ## Before finishing any change
 

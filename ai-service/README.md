@@ -42,10 +42,23 @@ How it works ([app/agent.py](app/agent.py)):
 
 Each run is capped at 5 model requests (`UsageLimits`) and at `AI_TIMEOUT_SECONDS`.
 
+**Search limits** ([app/limits.py](app/limits.py)), so nobody can run up the model bill.
+Before the model is called, the service asks the backend who the reader is (`/auth/me`)
+and counts the search against three sliding windows:
+- 10 per reader per minute
+- 100 per reader per 24 hours
+- 500 for everyone together per 24 hours
+
+Readers are counted by account, so logging in again doesn't reset anything. Only searches
+that reach the model count. Over a limit, the answer is a 429 with `Retry-After` and a
+message saying how long to wait. The counters are in memory, which fits one instance (as
+in Compose); they reset on restart.
+
 | Situation | Status | `detail` |
 |---|---|---|
 | Missing, blank or more than 300-character question | 422 | FastAPI validation error |
 | No session cookie, or an expired one | 401 | `Not logged in` (no model call is made) |
+| Over a search limit | 429 + `Retry-After` | `You're asking too fast. Try again in …` / `You've used your 100 AI searches for today…` / `…daily limit for everyone…` |
 | `AI_MODEL` or the provider key missing | 503 | `AI is not configured: …` naming the variable |
 | Backend unreachable, or its database down | 503 | `Book Vault is unavailable right now…` |
 | Model slower than `AI_TIMEOUT_SECONDS` | 504 | `The AI took too long to answer…` |
@@ -61,6 +74,9 @@ Each run is capped at 5 model requests (`UsageLimits`) and at `AI_TIMEOUT_SECOND
 | `ANTHROPIC_API_KEY` | | Key for the provider in `AI_MODEL` (read by Pydantic AI) |
 | `AI_TIMEOUT_SECONDS` | `20` | Model call timeout |
 | `BACKEND_TIMEOUT_SECONDS` | `5` | Backend call timeout |
+| `AI_LIMIT_PER_MINUTE` | `10` | Searches per reader per minute (0 = no limit) |
+| `AI_LIMIT_PER_DAY` | `100` | Searches per reader per 24 hours (0 = no limit) |
+| `AI_LIMIT_GLOBAL_PER_DAY` | `500` | Searches for everyone together per 24 hours (0 = no limit) |
 
 An invalid value (e.g. `AI_TIMEOUT_SECONDS=soon`) stops the service at startup with a
 message naming the variable. A missing `AI_MODEL` or provider key does not: `/health`

@@ -27,6 +27,7 @@ class NotLoggedIn(BackendError):
 
 
 _books = TypeAdapter(list[VaultBook])
+_me = TypeAdapter(dict[str, object])
 _tropes = TypeAdapter(list[dict[str, object]])
 
 
@@ -76,6 +77,18 @@ class VaultClient:
             return response.json()
         except ValueError as exc:
             raise BackendUnavailable("Book Vault backend sent invalid JSON") from exc
+
+    async def reader_id(self) -> int:
+        """Who is asking (GET /auth/me). Also proves the session is valid before any
+        model call, so an expired cookie costs nothing."""
+        try:
+            reader = _me.validate_python(await self._get("/auth/me"))
+            reader_id = reader["id"]
+        except (ValidationError, KeyError) as exc:
+            raise BackendUnavailable("Unexpected /auth/me response") from exc
+        if not isinstance(reader_id, int) or isinstance(reader_id, bool):
+            raise BackendUnavailable("Unexpected /auth/me response")
+        return reader_id
 
     async def tropes(self) -> list[str]:
         """Names of the tropes on the reader's books."""

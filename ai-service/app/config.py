@@ -13,6 +13,10 @@ from pydantic_ai.models import Model, infer_model
 DEFAULT_BACKEND_URL = "http://localhost:8000"
 DEFAULT_AI_TIMEOUT_SECONDS = 20.0
 DEFAULT_BACKEND_TIMEOUT_SECONDS = 5.0
+# Search limits (see app/limits.py). 0 turns one off.
+DEFAULT_LIMIT_PER_MINUTE = 10
+DEFAULT_LIMIT_PER_DAY = 100
+DEFAULT_LIMIT_GLOBAL_PER_DAY = 500
 
 
 class ConfigError(ValueError):
@@ -27,6 +31,9 @@ class Settings:
     ai_model: str | None
     ai_timeout_seconds: float
     backend_timeout_seconds: float
+    limit_per_minute: int = DEFAULT_LIMIT_PER_MINUTE
+    limit_per_day: int = DEFAULT_LIMIT_PER_DAY
+    limit_global_per_day: int = DEFAULT_LIMIT_GLOBAL_PER_DAY
 
 
 def _positive_float(env: Mapping[str, str], name: str, default: float) -> float:
@@ -42,6 +49,15 @@ def _positive_float(env: Mapping[str, str], name: str, default: float) -> float:
     return value
 
 
+def _limit(env: Mapping[str, str], name: str, default: int) -> int:
+    raw = env.get(name, "").strip()
+    if not raw:
+        return default
+    if not raw.isdigit():
+        raise ConfigError(f"{name} must be a whole number (0 = no limit), got {raw!r}")
+    return int(raw)
+
+
 def load_settings(env: Mapping[str, str]) -> Settings:
     """Build Settings from an environment mapping (os.environ in production)."""
     backend_url = env.get("BACKEND_URL", "").strip() or DEFAULT_BACKEND_URL
@@ -54,6 +70,9 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         backend_timeout_seconds=_positive_float(
             env, "BACKEND_TIMEOUT_SECONDS", DEFAULT_BACKEND_TIMEOUT_SECONDS
         ),
+        limit_per_minute=_limit(env, "AI_LIMIT_PER_MINUTE", DEFAULT_LIMIT_PER_MINUTE),
+        limit_per_day=_limit(env, "AI_LIMIT_PER_DAY", DEFAULT_LIMIT_PER_DAY),
+        limit_global_per_day=_limit(env, "AI_LIMIT_GLOBAL_PER_DAY", DEFAULT_LIMIT_GLOBAL_PER_DAY),
     )
 
 

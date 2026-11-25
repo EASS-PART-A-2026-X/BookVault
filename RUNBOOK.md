@@ -45,6 +45,7 @@ key.
 | `ANTHROPIC_API_KEY` | empty | ai-service | Needed only for an `anthropic:` model |
 | `AI_TIMEOUT_SECONDS` | `20` | ai-service | Model call limit; over it, the search answers 504 |
 | `BACKEND_TIMEOUT_SECONDS` | `5` | ai-service | Limit for its calls to the backend |
+| `AI_LIMIT_PER_MINUTE`, `AI_LIMIT_PER_DAY`, `AI_LIMIT_GLOBAL_PER_DAY` | `10`, `100`, `500` | ai-service | AI search limits: per reader per minute, per reader per 24 hours, and for everyone per 24 hours. `0` turns one off. In memory, so they reset when `ai-service` restarts. |
 | `DEMO_PASSWORD` | random | seed | Password for `demo`, `mira` and `theo`, 8–128 characters. If empty, a random one is printed once in `docker compose logs seed`. |
 | `SEED_DEMO_DATA` | `true` | seed | `false` = start with an empty vault |
 | `FRONTEND_PORT` | `8080` | frontend | Host port |
@@ -80,7 +81,7 @@ The AI service health shows what's wrong without calling the model:
 - `"backend": "unreachable"`: the AI service can't reach the backend.
 
 **Full check:** `scripts/smoke-test.sh` builds a separate throwaway stack (project `bvsmoke`,
-port 8092) and runs 33 checks: health, seed, AI search, failure drills, password reset and persistence.
+port 8092) and runs 37 checks: health, seed, AI search and its limit, failure drills, password reset and persistence.
 It then deletes that stack. It never touches your data. Exit code 0 means everything
 passed.
 
@@ -140,6 +141,7 @@ drives too.
 | AI search: 503 `The AI service is unavailable right now…` | `docker compose ps ai-service` (this is nginx's answer when the service is down) | `docker compose up -d --wait ai-service`. The rest of the app keeps working. |
 | AI search: 502 `The AI provider failed to answer…` | `docker compose logs ai-service`; the provider console | Usually a wrong or expired key, no credit, or a rate limit. Fix it in the provider console or rotate the key. To keep the demo going meanwhile: `AI_MODEL=fake`. |
 | AI search: 504 `The AI took too long to answer…` | Provider status page; `AI_TIMEOUT_SECONDS` | Retry. If it keeps happening, raise `AI_TIMEOUT_SECONDS` (nginx allows up to 60 s). |
+| AI search: 429 `You're asking too fast…` / `You've used your … AI searches for today…` / `…daily limit for everyone…` | `docker compose logs ai-service \| grep "search limit"` (logs the reader id) | Working as intended: the message says how long to wait, and the filters still work. To give more room, raise the `AI_LIMIT_*` values and run `docker compose up -d --wait`. Restarting `ai-service` also resets the counters. |
 | AI search: 502 `The AI couldn't turn that into a search…` | `docker compose logs ai-service` | The model's answer stayed invalid after 2 retries. Rephrase, or use the filters. If it happens often, run the eval (below). |
 | A reader forgot their password | Does the account have an email? (Settings shows a warning when it doesn't.) | **Forgot your password?** on the login page emails a link. With `EMAIL_BACKEND=console`, the link is in `docker compose logs backend`. |
 | Reset emails don't arrive | `docker compose logs backend \| grep -i email`; a send failure logs `could not send email to …: <ErrorType>` | Check the `SMTP_*` settings and the provider's dashboard (sender verified? quota?). The reader sees the same answer either way, so nothing tells them it failed. At most 3 emails per account per hour. |

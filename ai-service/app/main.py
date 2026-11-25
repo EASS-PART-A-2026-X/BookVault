@@ -2,7 +2,8 @@
 
 import logging
 import os
-from collections.abc import AsyncIterator
+import time
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any, Literal
 
@@ -21,6 +22,7 @@ from pydantic_ai.exceptions import (
 from app.agent import VaultDeps, plan_search
 from app.backend import SESSION_COOKIE, BackendUnavailable, NotLoggedIn, VaultClient
 from app.config import ModelStatus, Settings, load_settings, resolve_model
+from app.limits import LimitExceeded, SearchLimiter
 from app.schemas import ErrorResponse, SearchRequest, SearchResponse
 
 logger = logging.getLogger("bookvault.ai")
@@ -46,9 +48,10 @@ class HealthResponse(BaseModel):
 def create_app(
     settings: Settings | None = None,
     backend_transport: httpx.AsyncBaseTransport | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> FastAPI:
-    """Build the app. Tests pass settings and a fake backend transport; production reads
-    os.environ and talks to the real backend."""
+    """Build the app. Tests pass settings, a fake backend transport and a fake clock;
+    production reads os.environ and talks to the real backend."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -57,6 +60,12 @@ def create_app(
         resolved = settings or load_settings(os.environ)
         app.state.settings = resolved
         app.state.model_status = resolve_model(resolved)
+        app.state.limiter = SearchLimiter(
+            per_minute=resolved.limit_per_minute,
+            per_day=resolved.limit_per_day,
+            global_per_day=resolved.limit_global_per_day,
+            clock=clock,
+        )
         async with httpx.AsyncClient(
             base_url=resolved.backend_url,
             timeout=resolved.backend_timeout_seconds,
@@ -108,6 +117,7 @@ def _error(description: str) -> dict[str, Any]:
 
 SEARCH_ERRORS: dict[int | str, dict[str, Any]] = {
     401: _error(NOT_LOGGED_IN),
+    429: _error("Too many AI searches: per minute, per day, or for everyone today"),
     502: _error("The AI provider failed, or its answer was unusable"),
     503: _error("AI not configured, or the Book Vault backend is unavailable"),
     504: _error(AI_TIMEOUT),
@@ -118,7 +128,7 @@ async def search(payload: SearchRequest, request: Request) -> SearchResponse:
     """Turn the question into filters with the AI, then run them against your vault.
 
     Failures never crash the service: each one maps to a status code and a message
-    the frontend can show (401, 502, 503, 504; 422 for an invalid question)."""
+    the frontend can show (401, 429, 502, 503, 504; 422 for an invalid question)."""
     session = request.cookies.get(SESSION_COOKIE)
     if not session:
         # Checked before any model call: no tokens spent on anonymous requests.
@@ -129,8 +139,19 @@ async def search(payload: SearchRequest, request: Request) -> SearchResponse:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, model_status.reason)
 
     settings: Settings = request.app.state.settings
+    limiter: SearchLimiter = request.app.state.limiter
     vault = VaultClient(http=request.app.state.backend, session=session)
     try:
+        reader_id = await vault.reader_id()
+        try:
+            limiter.check_and_record(reader_id)
+        except LimitExceeded as exc:
+            logger.warning("search limit reached for reader %s", reader_id)
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                exc.message,
+                headers={"Retry-After": str(exc.retry_after)},
+            ) from exc
         plan = await plan_search(
             payload.question, VaultDeps(vault), model_status.model, settings.ai_timeout_seconds
         )

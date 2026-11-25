@@ -120,4 +120,14 @@ describe('describeAiError', () => {
     expect(describeAiError(plain)).toEqual(describeError(plain));
     expect(describeAiError(new ApiError(404, 'Nope', 'Nope')).kind).toBe('not-found');
   });
+
+  it('shows the search limit message from a 429', () => {
+    const detail = 'You’re asking too fast. Try again in 30 seconds.';
+    expect(describeAiError(new ApiError(429, detail, detail))).toEqual({
+      kind: 'server',
+      title: 'AI search limit reached',
+      message: detail,
+      retryable: true,
+    });
+  });
 });

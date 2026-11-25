@@ -91,6 +91,10 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-20}
       BACKEND_TIMEOUT_SECONDS: ${BACKEND_TIMEOUT_SECONDS:-5}
+      # Search limits (0 = off): per reader per minute and per day, everyone per day.
+      AI_LIMIT_PER_MINUTE: ${AI_LIMIT_PER_MINUTE:-10}
+      AI_LIMIT_PER_DAY: ${AI_LIMIT_PER_DAY:-100}
+      AI_LIMIT_GLOBAL_PER_DAY: ${AI_LIMIT_GLOBAL_PER_DAY:-500}
     networks:
       - bookvault
     expose:
