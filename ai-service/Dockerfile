@@ -19,7 +19,8 @@ FROM python:3.11-slim
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYDANTIC_AI_NO_BANNER=1
 
 RUN groupadd --system app && useradd --system --gid app --no-create-home app
 
