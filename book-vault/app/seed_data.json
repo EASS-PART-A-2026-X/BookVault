@@ -1,0 +1,51 @@
+{
+  "users": [
+    {
+      "username": "demo",
+      "display_name": "Demo Reader",
+      "bio": "The demo account: a mixed shelf to try filters and AI search on.",
+      "is_public": true,
+      "follows": ["mira"],
+      "books": [
+        {"title": "The Hobbit", "author": "J.R.R. Tolkien", "genre": "Fantasy", "rating": 5, "is_read": true, "review": "The cosiest adventure ever written.", "tropes": ["found family", "quest", "reluctant hero"]},
+        {"title": "Legends & Lattes", "author": "Travis Baldree", "genre": "Fantasy", "tropes": ["found family", "cozy", "low stakes"]},
+        {"title": "The House in the Cerulean Sea", "author": "TJ Klune", "genre": "Fantasy", "rating": 4, "is_read": true, "review": "Warm and gentle.", "tropes": ["found family", "cozy"]},
+        {"title": "A Wizard of Earthsea", "author": "Ursula K. Le Guin", "genre": "Fantasy", "tropes": ["coming of age", "magic school"]},
+        {"title": "Dune", "author": "Frank Herbert", "genre": "Sci-Fi", "rating": 5, "is_read": true, "review": "Dense, political, unforgettable.", "tropes": ["chosen one", "politics"]},
+        {"title": "Project Hail Mary", "author": "Andy Weir", "genre": "Sci-Fi", "rating": 5, "is_read": true, "review": "Science as a page-turner.", "tropes": ["unlikely friendship", "survival"]},
+        {"title": "The Left Hand of Darkness", "author": "Ursula K. Le Guin", "genre": "Sci-Fi", "tropes": ["first contact", "politics"]},
+        {"title": "Pride and Prejudice", "author": "Jane Austen", "genre": "Romance", "rating": 5, "is_read": true, "review": "Still the blueprint.", "tropes": ["enemies to lovers", "slow burn"]},
+        {"title": "The Hating Game", "author": "Sally Thorne", "genre": "Romance", "rating": 3, "is_read": true, "tropes": ["enemies to lovers", "workplace romance"]},
+        {"title": "Beach Read", "author": "Emily Henry", "genre": "Romance", "tropes": ["rivals to lovers", "slow burn"]},
+        {"title": "Gone Girl", "author": "Gillian Flynn", "genre": "Thriller", "rating": 4, "is_read": true, "review": "Twisty and mean in the best way.", "tropes": ["unreliable narrator"]},
+        {"title": "The Silent Patient", "author": "Alex Michaelides", "genre": "Thriller", "tropes": ["unreliable narrator", "twist ending"]},
+        {"title": "Murder on the Orient Express", "author": "Agatha Christie", "genre": "Mystery", "rating": 4, "is_read": true, "tropes": ["locked room", "detective"]},
+        {"title": "The Thursday Murder Club", "author": "Richard Osman", "genre": "Mystery", "tropes": ["cozy", "amateur sleuth"]},
+        {"title": "Sapiens", "author": "Yuval Noah Harari", "genre": "Non-Fiction", "rating": 3, "is_read": true, "review": "Big ideas, broad strokes."},
+        {"title": "Wolf Hall", "author": "Hilary Mantel", "genre": "Historical", "tropes": ["politics", "tudor"]}
+      ]
+    },
+    {
+      "username": "mira",
+      "display_name": "Mira",
+      "bio": "Romance and mysteries, reviewed honestly.",
+      "is_public": true,
+      "follows": [],
+      "books": [
+        {"title": "Emma", "author": "Jane Austen", "genre": "Romance", "rating": 4, "is_read": true, "review": "Meddling, but charming.", "tropes": ["matchmaking"]},
+        {"title": "The Murder of Roger Ackroyd", "author": "Agatha Christie", "genre": "Mystery", "rating": 5, "is_read": true, "review": "The twist still works.", "tropes": ["twist ending", "detective"]},
+        {"title": "Circe", "author": "Madeline Miller", "genre": "Fantasy", "rating": 5, "is_read": true, "review": "Myth retold beautifully.", "tropes": ["retelling"]}
+      ]
+    },
+    {
+      "username": "theo",
+      "display_name": "Theo",
+      "bio": "Private shelf: follow requests welcome.",
+      "is_public": false,
+      "follows": [],
+      "books": [
+        {"title": "Neuromancer", "author": "William Gibson", "genre": "Sci-Fi", "rating": 4, "is_read": true, "review": "Cyberpunk at the source.", "tropes": ["cyberpunk"]}
+      ]
+    }
+  ]
+}

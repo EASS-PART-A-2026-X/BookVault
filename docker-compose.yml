@@ -14,6 +14,22 @@
 name: book-vault
 
 services:
+  # One-shot job: loads demo readers and sample books into an EMPTY database, then
+  # exits. On a volume that already has data it changes nothing (see app/seed.py).
+  seed:
+    build: ./book-vault
+    command: ["python", "-m", "app.seed"]
+    environment:
+      DATABASE_URL: sqlite:////app/data/books.db
+      # Unset -> a random password, printed once by `docker compose logs seed`.
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    volumes:
+      - book-vault-data:/app/data
+    # Needs no network: it only writes the SQLite file on the volume.
+    network_mode: none
+    restart: "no"
+
   backend:
     build: ./book-vault
     # --root-path tells FastAPI it lives under /api, so its docs work through the
@@ -36,6 +52,11 @@ services:
       - bookvault
     expose:
       - "8000"
+    depends_on:
+      # Start only after the seed job finished (it never runs alongside the backend,
+      # so SQLite has one writer at a time).
+      seed:
+        condition: service_completed_successfully
     healthcheck:
       # python:3.11-slim has no curl; /health also checks the database.
       test:

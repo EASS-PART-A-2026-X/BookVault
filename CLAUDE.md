@@ -14,6 +14,8 @@ follow requests). Backend conventions live in
 cp .env.example .env                 # optional: real model + key; unset AI_MODEL = fake model
 docker compose up --build            # -d --wait to run in the background
 docker compose down                  # keeps data; add -v to delete the volume
+docker compose logs seed             # sample data: "added ..." once, then "already has data"
+                                     # (demo / mira / theo; password = DEMO_PASSWORD or the logged one)
 
 # Backend (book-vault/)
 uv sync
@@ -36,7 +38,7 @@ npm test                             # Vitest + React Testing Library
 npm run test:e2e                     # Playwright vs the real backend + AI service (fake model; needs uv)
 npm run build                        # typecheck + production build to dist/
 # Regenerate docs/proof/social screenshots on a throwaway stack (never your real data):
-FRONTEND_PORT=8090 docker compose -p bvproof up --build -d --wait     # repo root
+SEED_DEMO_DATA=false FRONTEND_PORT=8090 docker compose -p bvproof up --build -d --wait  # repo root, empty vault
 PROOF_BASE_URL=http://localhost:8090 PROOF_COMPOSE_PROJECT=bvproof node scripts/capture-proof.mjs
 docker compose -p bvproof down -v
 ```

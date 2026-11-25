@@ -3,7 +3,7 @@
  * Capture the proof screenshots from a running Docker stack.
  *
  * Use a throwaway Compose project so real data is never touched:
- *   FRONTEND_PORT=8090 docker compose -p bvproof up --build -d --wait   # repo root
+ *   SEED_DEMO_DATA=false FRONTEND_PORT=8090 docker compose -p bvproof up --build -d --wait   # repo root (empty vault)
  *   cd frontend && PROOF_BASE_URL=http://localhost:8090 PROOF_COMPOSE_PROJECT=bvproof \
  *     node scripts/capture-proof.mjs
  *   docker compose -p bvproof down -v                                   # clean up

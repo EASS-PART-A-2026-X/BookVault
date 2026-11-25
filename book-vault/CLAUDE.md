@@ -32,12 +32,15 @@ app/
   database.py   DATABASE_URL (default sqlite:///./data/books.db), engine, SessionLocal, Base, get_db
   models.py     SQLAlchemy ORM models (typed Mapped[...] style): User, AuthSession, Follow, Book, Trope, book_tropes
   schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead, TropeCount
+  seed.py       `python -m app.seed`: sample readers + books from seed_data.json, only into an
+                EMPTY database (no users, no books), in one transaction; Compose's `seed` job
 tests/
   conftest.py   fresh in-memory SQLite (StaticPool) per test; `client` = logged-in user "reader",
                 `make_client("alice")` = another logged-in user, `anon_client` = logged out
   test_auth.py  accounts, sessions, ownership, migrations
   test_social.py search, profiles, follow / requests, visibility
   test_main.py  API tests, grouped by CRUD / filters / validation / 404 / persistence
+  test_seed.py  seeding: first run, rerun no-op, never touches existing data, bad input
 data/           runtime SQLite file (gitignored, also the Docker volume at /app/data)
 ```
 
@@ -86,6 +89,8 @@ data/           runtime SQLite file (gitignored, also the Docker volume at /app/
   endpoint uses a new HTTP method, add it to `allow_methods`.
 - **Health.** `GET /health` returns `{"status": "ok"}` only if `SELECT 1` succeeds, otherwise
   `503`. Docker healthchecks depend on it, so keep it cheap and unauthenticated.
+- **Seed data** (`app/seed_data.json`) is validated with the API schemas (`BookCreate`,
+  `Username`, ...). Seeding must stay a no-op on any database that has users or books.
 - **Tests are required.** Every new endpoint needs tests for success, validation
   (`422`) and not-found (`404`) cases. Use the `client` fixture and never point tests
   at `./data/books.db`.
