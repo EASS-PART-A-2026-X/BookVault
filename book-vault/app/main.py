@@ -1,14 +1,16 @@
 """FastAPI application: Personal Book Vault & Reading Tracker endpoints."""
 
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.auth import UNAUTHORIZED_RESPONSE, current_user
@@ -80,6 +82,18 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(social_router)
+
+logger = logging.getLogger("bookvault")
+
+
+@app.exception_handler(OperationalError)
+async def database_unavailable(_: Request, exc: OperationalError) -> JSONResponse:
+    """The database can't be used (file missing or unreadable, disk full, locked...).
+    Every endpoint answers a JSON 503 like /health does, instead of a bare 500."""
+    logger.error("database unavailable: %s", exc.orig)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"detail": DATABASE_UNAVAILABLE}
+    )
 
 
 def get_book_or_404(db: Session, book_id: int, user: User) -> Book:

@@ -21,7 +21,19 @@ from app.models import AuthSession, Book, User
 from app.schemas import ErrorResponse, LoginRequest, RegisterRequest, UserRead
 
 SESSION_COOKIE = "bv_session"
-SESSION_DAYS = int(os.getenv("SESSION_DAYS", "30"))
+
+
+def positive_int_env(name: str, default: int) -> int:
+    """Read a whole number > 0 from the environment, or stop startup with a clear message."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    if not raw.isdigit() or int(raw) == 0:
+        raise RuntimeError(f"{name} must be a whole number greater than 0, got {raw!r}")
+    return int(raw)
+
+
+SESSION_DAYS = positive_int_env("SESSION_DAYS", 30)
 # Set COOKIE_SECURE=true when served over HTTPS so the cookie is never sent over plain HTTP.
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() in {"1", "true", "yes"}
 

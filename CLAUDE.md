@@ -14,6 +14,7 @@ follow requests). Backend conventions live in
 cp .env.example .env                 # optional: real model + key; unset AI_MODEL = fake model
 docker compose up --build            # -d --wait to run in the background
 docker compose down                  # keeps data; add -v to delete the volume
+scripts/smoke-test.sh                # throwaway stack: health, seed, AI, failure drills, persistence
 docker compose logs seed             # sample data: "added ..." once, then "already has data"
                                      # (demo / mira / theo; password = DEMO_PASSWORD or the logged one)
 
@@ -140,5 +141,5 @@ All of these must pass:
 (cd frontend && npm run lint && npm run typecheck && npm test && npm run test:e2e)
 ```
 
-If Docker-related files changed, also run `docker compose up --build -d --wait` and check
-<http://localhost:8080>.
+If Docker-related files changed, also run `scripts/smoke-test.sh` (it builds and tests a
+throwaway Compose project, never your data) and check <http://localhost:8080>.
