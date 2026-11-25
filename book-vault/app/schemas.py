@@ -153,11 +153,30 @@ Password = Annotated[
 DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)]
 Bio = Annotated[str, StringConstraints(strip_whitespace=True, max_length=280)]
 
+# Deliberately simple: something@domain.tld, no spaces. Whether the address really works
+# is proven by the reset email arriving, not by a stricter pattern.
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+EMAIL_MAX_LENGTH = 254
+
+
+def _normalize_email(value: object) -> object:
+    return value.strip().lower() if isinstance(value, str) else value
+
+
+# Trimmed and lower-cased, so each address belongs to at most one account.
+Email = Annotated[
+    str,
+    StringConstraints(pattern=EMAIL_PATTERN, max_length=EMAIL_MAX_LENGTH),
+    BeforeValidator(_normalize_email),
+]
+
 
 class RegisterRequest(BaseModel):
-    """POST /auth/register. Display name defaults to the username."""
+    """POST /auth/register. Display name defaults to the username. The email is private:
+    it's only used to send password reset links."""
 
     username: Username
+    email: Email
     password: Password
     display_name: DisplayName | None = None
 
@@ -179,7 +198,42 @@ class UserRead(BaseModel):
     display_name: str
     bio: str
     is_public: bool
+    # Only ever returned to its owner. None for accounts made before emails existed.
+    email: str | None
     created_at: datetime
+
+
+class PasswordResetRequest(BaseModel):
+    """POST /auth/password-reset. Not validated beyond length: the answer is the same
+    whether or not the address belongs to an account."""
+
+    email: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=320)]
+
+
+class PasswordResetConfirm(BaseModel):
+    """POST /auth/password-reset/confirm: the token from the emailed link."""
+
+    token: Annotated[str, StringConstraints(min_length=1, max_length=200)]
+    new_password: Password
+
+
+class PasswordChange(BaseModel):
+    """POST /auth/password: change it while logged in."""
+
+    current_password: str
+    new_password: Password
+
+
+class EmailChange(BaseModel):
+    """PUT /auth/email: needs the current password, so a stolen session can't redirect
+    reset emails and take over the account."""
+
+    email: Email
+    current_password: str
+
+
+class MessageResponse(BaseModel):
+    detail: str
 
 
 class ProfileUpdate(BaseModel):

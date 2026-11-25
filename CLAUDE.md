@@ -14,7 +14,7 @@ follow requests). Backend conventions live in
 cp .env.example .env                 # optional: real model + key; unset AI_MODEL = fake model
 docker compose up --build            # -d --wait to run in the background
 docker compose down                  # keeps data; add -v to delete the volume
-scripts/smoke-test.sh                # throwaway stack: health, seed, AI, failure drills, persistence
+scripts/smoke-test.sh                # throwaway stack: health, seed, AI, failure drills, reset, persistence
 docker compose logs seed             # sample data: "added ..." once, then "already has data"
                                      # (demo / mira / theo; password = DEMO_PASSWORD or the logged one)
 
@@ -56,7 +56,8 @@ src/
   social/             request-count context (header badge)
   types.ts            API types mirroring book-vault/app/schemas.py (GENRES, limits, normalizeTrope)
   pages/              BookListPage, AddBookPage, BookDetailPage, NotFoundPage, LoginPage,
-                      RegisterPage, PeoplePage, ProfilePage, RequestsPage, SettingsPage,
+                      RegisterPage, ForgotPasswordPage, ResetPasswordPage (emailed link),
+                      PeoplePage, ProfilePage, RequestsPage, SettingsPage (profile, email, password),
                       AskPage (AI search via askVault -> /api/ai/search)
   components/         BookForm, TropeInput, Filters, BookCard, ReviewCard, StarRating,
                       FollowButton, Avatar, TextField, ConfirmDialog, ErrorBanner, EmptyState,
@@ -69,7 +70,8 @@ src/
   test/               setup, fixtures (makeBook), renderApp, mockApi / mockApiFactory
 e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.spec.ts
                       (three readers in separate browser contexts), ai-search.spec.ts
-                      (AI search through the real AI service), helpers.ts, env.ts
+                      (AI search through the real AI service), password-reset.spec.ts (emailed
+                      link via EMAIL_BACKEND=file + latestEmailTo), helpers.ts, env.ts
 ```
 
 ## Frontend conventions
@@ -92,6 +94,10 @@ e2e/                  book-flow.spec.ts (7-step flow + account privacy), social.
 - **AI search errors** go through `describeAiError()`: unlike the backend, the AI service
   sends its own JSON 502/503/504 (provider error, not configured, timeout), so show its
   message instead of "can't reach the server".
+- **Password reset:** the email is private (only in the own-account `User`); reset/forgot
+  pages never reveal whether an address has an account. Wrong current password is a 400
+  (not 401, which would end the session). `/reset-password` is outside the auth guards so
+  the emailed link works in any browser; it drops `?token=` from the URL after reading it.
 - **Social visibility is the server's call** (`can_view_books`); the UI only reflects
   `can_view_books` / `follow_status` from the API and treats 403 as "private".
 - **New data views** use `useResource(key, fetcher)` instead of hand-rolled effects.

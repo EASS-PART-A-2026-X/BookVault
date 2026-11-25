@@ -108,6 +108,9 @@ export function LoginPage() {
         </fieldset>
       </form>
       <p className="auth-switch">
+        <Link to="/forgot-password">Forgot your password?</Link>
+      </p>
+      <p className="auth-switch">
         New here?{' '}
         <Link to={next === '/' ? '/register' : `/register?next=${encodeURIComponent(next)}`}>
           Create an account

@@ -18,3 +18,5 @@ export const WEB_URL = `http://localhost:${WEB_PORT}`;
 
 /** Throwaway SQLite file, deleted every time the backend starts (gitignored). */
 export const DB_FILE = path.join(here, '.tmp', 'e2e.db');
+/** The backend "sends" email here (EMAIL_BACKEND=file), emptied on every start. */
+export const OUTBOX_DIR = path.join(here, '.tmp', 'outbox');

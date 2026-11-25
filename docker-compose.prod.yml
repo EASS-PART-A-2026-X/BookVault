@@ -6,7 +6,8 @@
 # - caddy: the only public service. It serves HTTPS on 80/443 with automatic
 #   certificates and proxies everything to the frontend's nginx.
 # - frontend: no longer published on a host port, so it's reachable only through Caddy.
-# - backend: COOKIE_SECURE=true, so the session cookie is only ever sent over HTTPS.
+# - backend: COOKIE_SECURE=true, so the session cookie is only ever sent over HTTPS,
+#   and reset links point at https://SITE_ADDRESS.
 #
 # Needs SITE_ADDRESS in .env (the public host name).
 
@@ -36,6 +37,7 @@ services:
   backend:
     environment:
       COOKIE_SECURE: "true"
+      APP_BASE_URL: https://${SITE_ADDRESS}
 
 volumes:
   caddy-data:

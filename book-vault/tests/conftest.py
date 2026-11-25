@@ -14,14 +14,26 @@ from sqlalchemy import Engine, create_engine  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
+from app.auth import get_mailer  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
+from app.mailer import MemoryMailer  # noqa: E402
 from app.main import app  # noqa: E402
 
 DEFAULT_PASSWORD = "correct horse battery"
 
 
+def email_for(username: str) -> str:
+    return f"{username}@example.com"
+
+
 @pytest.fixture
-def engine() -> Generator[Engine, None, None]:
+def outbox() -> MemoryMailer:
+    """Every email the app "sends" in a test lands here; nothing leaves the machine."""
+    return MemoryMailer()
+
+
+@pytest.fixture
+def engine(outbox: MemoryMailer) -> Generator[Engine, None, None]:
     # StaticPool reuses a single connection, so every session sees the same
     # in-memory database (otherwise each connection would get an empty one).
     engine = create_engine(
@@ -40,6 +52,7 @@ def engine() -> Generator[Engine, None, None]:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_mailer] = lambda: outbox
     yield engine
     app.dependency_overrides.clear()
     engine.dispose()
@@ -63,7 +76,8 @@ def make_client(engine: Engine) -> Generator[Callable[[str], TestClient], None, 
         test_client.__enter__()
         clients.append(test_client)
         response = test_client.post(
-            "/auth/register", json={"username": username, "password": password}
+            "/auth/register",
+            json={"username": username, "email": email_for(username), "password": password},
         )
         assert response.status_code == 201, response.text
         return test_client

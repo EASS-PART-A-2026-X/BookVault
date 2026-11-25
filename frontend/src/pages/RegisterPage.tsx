@@ -14,10 +14,16 @@ import {
 } from '../lib/authValidation';
 import { describeError, mapIssuesToFields } from '../lib/errors';
 import { useToast } from '../toast/context';
-import { PASSWORD_MIN_LENGTH } from '../types';
+import { EMAIL_MAX_LENGTH, PASSWORD_MIN_LENGTH, normalizeEmail } from '../types';
 import { AuthCard } from './LoginPage';
 
-const EMPTY: RegisterValues = { username: '', display_name: '', password: '', confirm: '' };
+const EMPTY: RegisterValues = {
+  username: '',
+  email: '',
+  display_name: '',
+  password: '',
+  confirm: '',
+};
 
 export function RegisterPage() {
   const { setUser } = useAuth();
@@ -56,7 +62,7 @@ export function RegisterPage() {
     if (busy.current) return;
     const clientErrors = validateRegister(values);
     setErrors(clientErrors);
-    setTouched({ username: true, display_name: true, password: true, confirm: true });
+    setTouched({ username: true, email: true, display_name: true, password: true, confirm: true });
     if (Object.keys(clientErrors).length > 0) {
       focusFirst(clientErrors);
       return;
@@ -67,6 +73,7 @@ export function RegisterPage() {
     try {
       const user = await register({
         username: values.username,
+        email: normalizeEmail(values.email),
         password: values.password,
         display_name: values.display_name.trim() || undefined,
       });
@@ -75,7 +82,10 @@ export function RegisterPage() {
       navigate(next, { replace: true });
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
-        const fieldErrors = { username: 'That username is taken. Try another one.' };
+        // The backend says which one is taken.
+        const fieldErrors = /email/i.test(error.message)
+          ? { email: 'That email is already used by another account.' }
+          : { username: 'That username is taken. Try another one.' };
         setErrors(fieldErrors);
         focusFirst(fieldErrors);
       } else if (error instanceof ValidationError) {
@@ -120,6 +130,15 @@ export function RegisterPage() {
             label="Username"
             hint="3–30 characters: letters, numbers, “_” and “.”"
             autoComplete="username"
+            required
+          />
+          <TextField
+            {...field('email')}
+            label="Email"
+            type="email"
+            hint="Private: only used to send you a link if you forget your password."
+            autoComplete="email"
+            maxLength={EMAIL_MAX_LENGTH}
             required
           />
           <TextField

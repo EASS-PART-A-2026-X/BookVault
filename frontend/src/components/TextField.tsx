@@ -8,7 +8,7 @@ interface Props {
   onBlur?: () => void;
   error?: string;
   hint?: ReactNode;
-  type?: 'text' | 'password';
+  type?: 'text' | 'password' | 'email';
   autoComplete?: string;
   required?: boolean;
   maxLength?: number;

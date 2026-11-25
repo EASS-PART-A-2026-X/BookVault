@@ -26,4 +26,12 @@ def migrate(engine: Engine) -> list[str]:
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_books_owner_id ON books (owner_id)"))
         applied.append("books.owner_id")
 
+    # v0.5 (password reset): users have an optional, unique, private email.
+    user_columns = {c["name"] for c in inspect(engine).get_columns("users")}
+    if "email" not in user_columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(254)"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)"))
+        applied.append("users.email")
+
     return applied

@@ -26,11 +26,15 @@ Never edit `uv.lock` by hand. Change dependencies with `uv add` / `uv remove`.
 app/
   main.py       FastAPI app, lifespan (create_all + migrate), CORS, book/trope endpoints, GET /health
   auth.py       accounts + sessions: Argon2 hashing, cookie sessions, current_user dependency,
-                /auth/register|login|logout|me
+                /auth/register|login|logout|me, /auth/password, /auth/email,
+                /auth/password-reset (+ /confirm): emailed single-use links, hashed tokens
+  mailer.py     EMAIL_BACKEND console|file|smtp (stdlib smtplib), APP_BASE_URL; get_mailer()
+                is a dependency, tests swap in MemoryMailer (the `outbox` fixture)
   social.py     PATCH /users/me, user search, profiles, others' books, follow / follow requests
   migrations.py migrate(engine): small, idempotent ALTERs for databases made by older versions
   database.py   DATABASE_URL (default sqlite:///./data/books.db), engine, SessionLocal, Base, get_db
-  models.py     SQLAlchemy ORM models (typed Mapped[...] style): User, AuthSession, Follow, Book, Trope, book_tropes
+  models.py     SQLAlchemy ORM models (typed Mapped[...] style): User, AuthSession, PasswordReset,
+                Follow, Book, Trope, book_tropes
   schemas.py    Pydantic v2 schemas: Genre enum, BookCreate, BookUpdate, BookRead, TropeCount
   seed.py       `python -m app.seed`: sample readers + books from seed_data.json, only into an
                 EMPTY database (no users, no books), in one transaction; Compose's `seed` job
@@ -38,6 +42,8 @@ tests/
   conftest.py   fresh in-memory SQLite (StaticPool) per test; `client` = logged-in user "reader",
                 `make_client("alice")` = another logged-in user, `anon_client` = logged out
   test_auth.py  accounts, sessions, ownership, migrations
+  test_password_reset.py  emails on accounts, reset by email, change password / email
+  test_mailer.py mail backends and their settings (no real email)
   test_social.py search, profiles, follow / requests, visibility
   test_main.py  API tests, grouped by CRUD / filters / validation / 404 / persistence
   test_seed.py  seeding: first run, rerun no-op, never touches existing data, bad input
@@ -70,7 +76,11 @@ data/           runtime SQLite file (gitignored, also the Docker volume at /app/
   don't leak. Declare `responses=UNAUTHORIZED_RESPONSE` (already in `NOT_FOUND_RESPONSE`).
   Passwords only via `hash_password`/`verify_password`; never return or log them. The
   session cookie is httpOnly + SameSite=Lax; only `sha256(token)` is stored. Login errors
-  are always the same 401 message (don't reveal whether a username exists).
+  are always the same 401 message (don't reveal whether a username exists). Emails are
+  private (only in `UserRead`, the own account) and never logged with secrets. Reset
+  requests always answer the same 202. Changing password or email needs the current
+  password and answers 400 (not 401) when it's wrong. Never send real email in tests:
+  the `outbox` fixture captures it.
 - **Social visibility** is decided only by `can_view_books(db, viewer, owner)` in
   `app/social.py` (self, public profile, or accepted follow). Any endpoint exposing
   another user's books, reviews or follower lists must check it and answer `403

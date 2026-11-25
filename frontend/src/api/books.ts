@@ -200,6 +200,37 @@ export function getMe(signal?: AbortSignal): Promise<User> {
   return request<User>('/auth/me', { signal });
 }
 
+/** Always resolves with the same message, whether or not the email has an account. */
+export async function requestPasswordReset(email: string): Promise<string> {
+  const body = await request<{ detail: string }>(
+    '/auth/password-reset',
+    jsonInit('POST', { email }),
+  );
+  return body.detail;
+}
+
+export async function confirmPasswordReset(token: string, newPassword: string): Promise<void> {
+  await request<undefined>(
+    '/auth/password-reset/confirm',
+    jsonInit('POST', { token, new_password: newPassword }),
+  );
+}
+
+/** Wrong current password: ApiError 400 (not 401, so the session is kept). */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await request<undefined>(
+    '/auth/password',
+    jsonInit('POST', { current_password: currentPassword, new_password: newPassword }),
+  );
+}
+
+export function changeEmail(email: string, currentPassword: string): Promise<User> {
+  return request<User>(
+    '/auth/email',
+    jsonInit('PUT', { email, current_password: currentPassword }),
+  );
+}
+
 export function updateProfile(data: ProfileUpdate): Promise<User> {
   return request<User>('/users/me', jsonInit('PATCH', data));
 }

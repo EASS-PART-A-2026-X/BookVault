@@ -7,6 +7,7 @@ import {
   API_URL,
   BACKEND_DIR,
   DB_FILE,
+  OUTBOX_DIR,
   WEB_PORT,
   WEB_URL,
 } from './e2e/env';
@@ -45,12 +46,16 @@ export default defineConfig({
     {
       name: 'backend',
       // Delete the old database first so every run starts empty.
-      command: `rm -f "${DB_FILE}" && exec uv run uvicorn app.main:app --port ${API_PORT}`,
+      command: `rm -rf "${DB_FILE}" "${OUTBOX_DIR}" && exec uv run uvicorn app.main:app --port ${API_PORT}`,
       cwd: BACKEND_DIR,
       url: `${API_URL}/health`,
       env: {
         DATABASE_URL: `sqlite:///${DB_FILE}`,
         CORS_ORIGINS: WEB_URL,
+        // Reset emails become JSON files the specs can read; links point at this app.
+        EMAIL_BACKEND: 'file',
+        EMAIL_OUTBOX_DIR: OUTBOX_DIR,
+        APP_BASE_URL: WEB_URL,
       },
       // Never reuse: a running server could hold stale data or the wrong database.
       reuseExistingServer: false,

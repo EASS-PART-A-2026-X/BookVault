@@ -14,7 +14,7 @@ from app.auth import SESSION_COOKIE
 from app.main import app
 from app.migrations import migrate
 from app.models import AuthSession, User
-from tests.conftest import DEFAULT_PASSWORD
+from tests.conftest import DEFAULT_PASSWORD, email_for
 
 BOOK: dict[str, Any] = {"title": "Dune", "author": "Frank Herbert", "genre": "Sci-Fi"}
 MakeClient = Callable[..., TestClient]
@@ -22,7 +22,13 @@ MakeClient = Callable[..., TestClient]
 
 def register(client: TestClient, username: str = "gal", **extra: Any) -> Any:
     return client.post(
-        "/auth/register", json={"username": username, "password": DEFAULT_PASSWORD, **extra}
+        "/auth/register",
+        json={
+            "username": username,
+            "email": email_for(username.strip().lower()),
+            "password": DEFAULT_PASSWORD,
+            **extra,
+        },
     )
 
 
@@ -73,17 +79,27 @@ def test_username_taken_is_case_insensitive(anon_client: TestClient) -> None:
     assert response.json() == {"detail": "Username already taken"}
 
 
+E = "gal@example.com"
+
+
 @pytest.mark.parametrize(
     ("payload", "field"),
     [
-        ({"username": "ab", "password": DEFAULT_PASSWORD}, "username"),
-        ({"username": "x" * 31, "password": DEFAULT_PASSWORD}, "username"),
-        ({"username": "no spaces", "password": DEFAULT_PASSWORD}, "username"),
-        ({"username": "émile", "password": DEFAULT_PASSWORD}, "username"),
-        ({"username": "gal", "password": "short"}, "password"),
-        ({"username": "gal", "password": "x" * 129}, "password"),
-        ({"username": "gal", "password": DEFAULT_PASSWORD, "display_name": "  "}, "display_name"),
-        ({"password": DEFAULT_PASSWORD}, "username"),
+        ({"username": "ab", "email": E, "password": DEFAULT_PASSWORD}, "username"),
+        ({"username": "x" * 31, "email": E, "password": DEFAULT_PASSWORD}, "username"),
+        ({"username": "no spaces", "email": E, "password": DEFAULT_PASSWORD}, "username"),
+        ({"username": "émile", "email": E, "password": DEFAULT_PASSWORD}, "username"),
+        ({"username": "gal", "email": E, "password": "short"}, "password"),
+        ({"username": "gal", "email": E, "password": "x" * 129}, "password"),
+        (
+            {"username": "gal", "email": E, "password": DEFAULT_PASSWORD, "display_name": "  "},
+            "display_name",
+        ),
+        ({"password": DEFAULT_PASSWORD, "email": E}, "username"),
+        ({"username": "gal", "password": DEFAULT_PASSWORD}, "email"),
+        ({"username": "gal", "email": "not-an-email", "password": DEFAULT_PASSWORD}, "email"),
+        ({"username": "gal", "email": "a b@example.com", "password": DEFAULT_PASSWORD}, "email"),
+        ({"username": "gal", "email": "x" * 250 + "@a.io", "password": DEFAULT_PASSWORD}, "email"),
     ],
     ids=[
         "too-short",
@@ -94,6 +110,10 @@ def test_username_taken_is_case_insensitive(anon_client: TestClient) -> None:
         "long-pw",
         "blank-name",
         "missing",
+        "no-email",
+        "bad-email",
+        "email-space",
+        "long-email",
     ],
 )
 def test_register_validation(anon_client: TestClient, payload: dict[str, Any], field: str) -> None:

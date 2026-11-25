@@ -91,6 +91,14 @@ export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 export const DISPLAY_NAME_MAX_LENGTH = 50;
 export const BIO_MAX_LENGTH = 280;
+/** Mirrors EMAIL_PATTERN / EMAIL_MAX_LENGTH in the backend schemas. */
+export const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+export const EMAIL_MAX_LENGTH = 254;
+
+/** Like the backend: trimmed and lower case. */
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
 
 /** The logged-in account (GET /auth/me). */
 export interface User {
@@ -99,11 +107,14 @@ export interface User {
   display_name: string;
   bio: string;
   is_public: boolean;
+  /** Private: only for password reset links. null for accounts made before emails. */
+  email: string | null;
   created_at: string;
 }
 
 export interface RegisterRequest {
   username: string;
+  email: string;
   password: string;
   display_name?: string;
 }

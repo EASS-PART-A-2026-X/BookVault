@@ -36,7 +36,7 @@ EX2 [docs/proof/ex2/PROOF-EX2.md](docs/proof/ex2/PROOF-EX2.md), EX1
 | 2 | Pydantic AI functionality | [`ai-service/app/agent.py`](ai-service/app/agent.py): typed `output_type=SearchPlan`, the `list_my_tropes` tool that reads the reader's data through the backend, an output validator with `ModelRetry`, a timeout and a usage cap. Every error maps to a clear status: [error table](ai-service/README.md#post-search). Provider and key come only from env; the `fake` model works offline. | The **Ask** page |
 | 3 | Docker Compose | [`docker-compose.yml`](docker-compose.yml): healthchecks, `depends_on` with `service_healthy` and `service_completed_successfully`, a named volume, one shared network | `docker compose up --build -d --wait` |
 | 4 | Persistent data initialization | [`book-vault/app/seed.py`](book-vault/app/seed.py): an idempotent one-shot `seed` job (3 readers, 20 books), only into an empty database, in one transaction, no hard-coded password | `docker compose logs seed` |
-| 5 | Automated tests and failure tests | Backend 181 tests, AI service 92 (100% coverage, `TestModel` / `FunctionModel`, no key), frontend 138 Vitest and 4 Playwright e2e. Failure tests cover database down, provider error, timeout, invalid input, missing or invalid env and bad model output: [`test_failures.py`](book-vault/tests/test_failures.py), [`test_search_api.py`](ai-service/tests/test_search_api.py), [`test_config.py`](ai-service/tests/test_config.py), and [`scripts/smoke-test.sh`](scripts/smoke-test.sh) on a real stack | [Run all tests](#c-run-all-tests) |
+| 5 | Automated tests and failure tests | Backend 239 tests, AI service 92 (100% coverage, `TestModel` / `FunctionModel`, no key), frontend 158 Vitest and 6 Playwright e2e. Failure tests cover database down, provider error, timeout, invalid input, missing or invalid env and bad model output: [`test_failures.py`](book-vault/tests/test_failures.py), [`test_search_api.py`](ai-service/tests/test_search_api.py), [`test_config.py`](ai-service/tests/test_config.py), and [`scripts/smoke-test.sh`](scripts/smoke-test.sh) on a real stack | [Run all tests](#c-run-all-tests) |
 | 6 | Basic CI | [`.github/workflows/ci.yml`](.github/workflows/ci.yml): lint and tests for each service, e2e, `docker compose build` and the smoke test. No secrets. | GitHub Actions tab |
 | 7 | AI eval dataset and results | [`eval/dataset.jsonl`](eval/dataset.jsonl) (26 cases), [`eval/run_eval.py`](eval/run_eval.py), [`eval/results.md`](eval/results.md). Claude Haiku returns the right books for **92%** of questions, against 81% for the keyword baseline, with failure examples and conclusions. | `uv run python ../eval/run_eval.py --model fake` |
 | 8 | Live demo | [`docs/deploy.md`](docs/deploy.md): a VM running the same Compose stack, plus [`docker-compose.prod.yml`](docker-compose.prod.yml) (Caddy HTTPS, secure cookie) | The URL above |
@@ -122,7 +122,7 @@ docker compose logs -f backend          # follow the API logs
 docker compose down                     # stop and remove containers (data is kept)
 docker compose down -v                  # ...and delete the data volume
 FRONTEND_PORT=3000 docker compose up -d # use another host port
-scripts/smoke-test.sh                   # throwaway stack: health, seed, AI, failure drills, persistence
+scripts/smoke-test.sh                   # throwaway stack: health, seed, AI, failure drills, reset, persistence
 ```
 
 Operating it (backups, incidents, key rotation): [RUNBOOK.md](RUNBOOK.md). Deploying it
@@ -162,6 +162,8 @@ Configuration (all optional):
 | `DATABASE_URL` | backend | `sqlite:///./data/books.db` | SQLite location |
 | `SESSION_DAYS` | backend | `30` | How long a login lasts |
 | `COOKIE_SECURE` | backend | `false` | Set `true` when served over HTTPS (cookie only sent over HTTPS) |
+| `EMAIL_BACKEND` | backend | `console` | How reset emails go out: `console` (server log), `file`, or `smtp` with `SMTP_*`. See [RUNBOOK.md](RUNBOOK.md#configuration) |
+| `APP_BASE_URL` | backend | `http://localhost:8080` | Where reset links point (`http://localhost:5173` in local dev) |
 | `CORS_ORIGINS` | backend | `http://localhost:5173` | Origins allowed to call the API directly (only needed if `VITE_API_URL` points at another origin) |
 | `AI_MODEL` | AI service | empty: AI off (`fake` in Compose) | Pydantic AI model, e.g. `anthropic:claude-haiku-5-5`, or `fake` |
 | `ANTHROPIC_API_KEY` | AI service | | Key for an `anthropic:` model |
@@ -175,7 +177,7 @@ in [`.env.example`](.env.example) and the [runbook](RUNBOOK.md#configuration).
 
 ## (c) Run all tests
 
-**Backend**: pytest (181 tests, 100% coverage) and ruff.
+**Backend**: pytest (239 tests, 100% coverage) and ruff.
 
 ```bash
 cd book-vault
@@ -196,7 +198,7 @@ uv run ruff format --check . ../eval
 ```
 
 **Frontend**: lint (ESLint + Prettier), typecheck, and Vitest + React Testing Library
-(138 tests).
+(158 tests).
 
 ```bash
 cd frontend
@@ -212,6 +214,8 @@ npm test
 - privacy between two accounts
 - a three-reader social flow: search, follow request, accept, read reviews, public follow
 - AI search through the real AI service
+- password reset: the emailed link (written to a file by the test backend), a new password,
+  single use, and changing password and email in Settings
 
 One command starts uvicorn on `:8001` with a fresh temporary SQLite file, the AI service
 on `:8101`, and Vite on `:5174`, so it never touches your dev servers or data. It runs
@@ -228,7 +232,7 @@ On failure, Playwright keeps a screenshot, a video and a trace in `frontend/test
 (`npx playwright show-trace <path>/trace.zip`).
 
 **Whole stack**: [`scripts/smoke-test.sh`](scripts/smoke-test.sh) builds a throwaway
-Compose project and runs 26 checks, including failure drills (backend down, AI service
+Compose project and runs 33 checks, including failure drills (backend down, AI service
 down), then removes it. **CI** runs all of the above on every push.
 
 **AI eval**: see [eval/results.md](eval/results.md) for how to rerun it.
@@ -244,6 +248,7 @@ down), then removes it. **CI** runs all of the above on every push.
 | **Delete** | Confirmed in an in-app dialog |
 | **Loading & errors** | Spinners and disabled buttons while saving; empty vault vs. "no matches" states; inline validation that mirrors the API; server `422`s shown next to each field; "Book not found" page; "Can't reach the server" banner with Retry; success toasts; error boundaries |
 | **Accounts** | Sign up, log in, log out; every page needs a login and returns you where you were heading; each reader's books are private to them by default |
+| **Password reset** | **Forgot your password?** emails a single-use link that expires in 30 minutes, without revealing whether an address has an account. Setting a new password logs out every device. In **Settings**, change your password (other devices are logged out) or your private email. |
 | **People & profiles** | Search readers by name; profiles show bio, counts and (when allowed) their books as review cards; followers / following lists |
 | **Following** | Public profile → follow instantly. Private → "Request to follow", which they accept or decline from **Requests** (badge in the header). Unfollow, cancel a request, or remove a follower at any time |
 | **Privacy** | In **Settings** choose Private (default, approve each follower) or Public; name, bio and counts are always visible to logged-in readers, books and reviews only as allowed |
@@ -256,11 +261,12 @@ down), then removes it. **CI** runs all of the above on every push.
 ├── ai-service/              EX3: Pydantic AI search service (app/, tests/, Dockerfile); see its README
 ├── frontend/                EX2: React + TypeScript SPA
 │   ├── src/api/books.ts     typed API client (the only module that calls fetch)
-│   ├── src/pages/           list, add, detail/edit, ask (AI), login, register, people, profile, requests, settings
+│   ├── src/pages/           list, add, detail/edit, ask (AI), login, register, forgot/reset password,
+│   │                        people, profile, requests, settings
 │   ├── src/auth/            session state, route guards
 │   ├── src/components/      form, filters, cards, stars, tropes, dialog, banners, toasts, error boundary
 │   ├── src/lib/             filters <-> URL, validation, error mapping, formatting
-│   ├── e2e/                 Playwright: book flow, account privacy, social flow, AI search
+│   ├── e2e/                 Playwright: book flow, account privacy, social flow, AI search, password reset
 │   ├── scripts/             capture-proof.mjs (regenerates the proof screenshots)
 │   ├── Dockerfile           Node build stage -> nginx runtime stage
 │   └── nginx.conf           SPA fallback + /api/ai and /api reverse proxy

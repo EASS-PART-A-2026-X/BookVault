@@ -107,7 +107,31 @@ request GET /api/books;          check "AI service down: books still work" 200 "
 compose up -d --wait ai-service >/dev/null 2>&1
 ask "fantasy";                   check "AI service back" 200 "$STATUS"
 
-echo "== 5. Persistence across down / up"
+echo "== 5. Password reset by email (EMAIL_BACKEND=console: the link is in the backend log)"
+SAVED_JAR="${WORK}/demo-jar"; cp "$JAR" "$SAVED_JAR"; : >"$JAR"
+request POST /api/auth/register '{"username": "smoker", "email": "smoker@example.com", "password": "first-password"}'
+check "sign up with an email" 201 "$STATUS"
+: >"$JAR"
+request POST /api/auth/password-reset '{"email": "SMOKER@example.com"}'
+check "ask for a reset link" 202 "$STATUS" "$BODY" 'If an account uses that email'
+token=""
+for _ in 1 2 3 4 5; do
+  token="$(compose logs backend 2>/dev/null | grep -o 'reset-password?token=[A-Za-z0-9_-]*' | tail -1 | cut -d= -f2)"
+  [[ -n "$token" ]] && break
+  sleep 1
+done
+check "the reset email was sent" ok "$([[ -n "$token" ]] && echo ok || echo 'no link in the backend log')"
+request POST /api/auth/password-reset/confirm "{\"token\": \"${token}\", \"new_password\": \"second-password\"}"
+check "set a new password with the link" 204 "$STATUS"
+request POST /api/auth/password-reset/confirm "{\"token\": \"${token}\", \"new_password\": \"third-password\"}"
+check "the link works only once" 400 "$STATUS" "$BODY" 'invalid or has expired'
+request POST /api/auth/login '{"username": "smoker", "password": "first-password"}'
+check "the old password stops working" 401 "$STATUS"
+request POST /api/auth/login '{"username": "smoker", "password": "second-password"}'
+check "the new password works" 200 "$STATUS"
+cp "$SAVED_JAR" "$JAR"
+
+echo "== 6. Persistence across down / up"
 request POST /api/books '{"title": "Smoke Test Book", "author": "CI", "genre": "Mystery"}'
 check "add a book" 201 "$STATUS"
 compose down >/dev/null 2>&1

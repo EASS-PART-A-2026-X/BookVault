@@ -85,6 +85,13 @@ AI_MODEL=anthropic:claude-haiku-5-5
 ANTHROPIC_API_KEY=<the demo key>
 DEMO_PASSWORD=<a long random password: you'll share it with graders>
 SEED_DEMO_DATA=true
+# Password reset emails, from your email provider (see "Email" below):
+EMAIL_BACKEND=smtp
+SMTP_HOST=<provider's SMTP host>
+SMTP_PORT=587
+SMTP_USERNAME=<SMTP user>
+SMTP_PASSWORD=<SMTP password or API key>
+SMTP_FROM=Book Vault <no-reply@your-domain>
 ```
 
 `COMPOSE_FILE` in `.env` means every command in [RUNBOOK.md](../RUNBOOK.md) works
@@ -112,6 +119,19 @@ Then, in a browser:
 3. Register a new reader to check sign-up.
 
 **7. Publish the URL.** Put it at the top of this file and in the README's EX3 section.
+
+### Email (password reset)
+
+Reset links need real email on the server. Any provider with SMTP works: a transactional
+email service, or your own mailbox's SMTP with an app password. Put its settings in `.env`
+as above. Reset links automatically point at `https://SITE_ADDRESS`.
+
+- Most providers require a **verified sender** (`SMTP_FROM`) before they deliver.
+- Test it: register with your own address, log out, click **Forgot your password?**, and
+  check that the email arrives. If it doesn't, `docker compose logs backend | grep -i email`
+  shows `could not send email to …` with the error type, and never the password.
+- Without SMTP, leave `EMAIL_BACKEND=console`. The demo still works, but reset emails only
+  appear in the server's log, so visitors can't reset their own passwords.
 
 ## Running it
 

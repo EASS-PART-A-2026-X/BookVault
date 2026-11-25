@@ -590,7 +590,10 @@ def test_data_persists_across_engine_rebuild(tmp_path: Path) -> None:
         engine, factory = build_session_factory()
         override_with(factory)
         with TestClient(app) as client:
-            client.post("/auth/register", json={"username": "keeper", "password": "x" * 12})
+            client.post(
+                "/auth/register",
+                json={"username": "keeper", "email": "keeper@example.com", "password": "x" * 12},
+            )
             created = create_book(client, title="Persistent Book")
             session_cookie = client.cookies.get("bv_session")
         engine.dispose()

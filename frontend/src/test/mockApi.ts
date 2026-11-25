@@ -24,6 +24,10 @@ export const mocked = {
   register: vi.mocked(api.register),
   logout: vi.mocked(api.logout),
   updateProfile: vi.mocked(api.updateProfile),
+  requestPasswordReset: vi.mocked(api.requestPasswordReset),
+  confirmPasswordReset: vi.mocked(api.confirmPasswordReset),
+  changePassword: vi.mocked(api.changePassword),
+  changeEmail: vi.mocked(api.changeEmail),
   searchUsers: vi.mocked(api.searchUsers),
   getProfile: vi.mocked(api.getProfile),
   getUserBooks: vi.mocked(api.getUserBooks),
@@ -49,6 +53,7 @@ export const READER = {
   display_name: 'Reader',
   bio: '',
   is_public: false,
+  email: 'reader@example.com' as string | null,
   created_at: '2026-11-24T10:00:00',
 };
 

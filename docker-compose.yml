@@ -46,6 +46,17 @@ services:
       DATABASE_URL: sqlite:////app/data/books.db
       # Same-origin through nginx, so no browser origin needs CORS.
       CORS_ORIGINS: ""
+      # Password reset emails (see .env.example). Default "console": the email is
+      # written to this service's log, which is fine on your own machine only.
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-console}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:${FRONTEND_PORT:-8080}}
+      PASSWORD_RESET_MINUTES: ${PASSWORD_RESET_MINUTES:-30}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - book-vault-data:/app/data
     networks:

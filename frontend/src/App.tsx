@@ -10,11 +10,13 @@ import { AddBookPage } from './pages/AddBookPage';
 import { AskPage } from './pages/AskPage';
 import { BookDetailPage } from './pages/BookDetailPage';
 import { BookListPage } from './pages/BookListPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PeoplePage } from './pages/PeoplePage';
 import { ProfilePage } from './pages/ProfilePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { RequestsPage } from './pages/RequestsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useRequestCount } from './social/requestCount';
@@ -146,7 +148,10 @@ export function AppRoutes() {
             <Route element={<PublicOnly />}>
               <Route path="login" element={<LoginPage />} />
               <Route path="register" element={<RegisterPage />} />
+              <Route path="forgot-password" element={<ForgotPasswordPage />} />
             </Route>
+            {/* Not PublicOnly: the emailed link must work even in a logged-in browser. */}
+            <Route path="reset-password" element={<ResetPasswordPage />} />
             <Route element={<RequireAuth />}>
               <Route index element={<BookListPage />} />
               <Route path="books/new" element={<AddBookPage />} />

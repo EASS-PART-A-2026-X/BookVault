@@ -15,6 +15,7 @@ const GAL: User = {
   display_name: 'Gal',
   bio: '',
   is_public: false,
+  email: 'gal@example.com',
   created_at: '2026-11-24T10:00:00',
 };
 
@@ -113,6 +114,13 @@ describe('login', () => {
   });
 });
 
+const COMPLETE = {
+  username: 'gal',
+  email: 'gal@example.com',
+  password: 'correct horse',
+  confirm: 'correct horse',
+};
+
 describe('sign up', () => {
   beforeEach(() => {
     mocked.getMe.mockRejectedValue(signedOut());
@@ -120,9 +128,10 @@ describe('sign up', () => {
 
   async function fill(
     user: Awaited<ReturnType<typeof renderApp>>['user'],
-    values: { username?: string; password?: string; confirm?: string },
+    values: { username?: string; email?: string; password?: string; confirm?: string },
   ) {
     if (values.username) await user.type(screen.getByLabelText('Username'), values.username);
+    if (values.email) await user.type(screen.getByLabelText('Email'), values.email);
     if (values.password) await user.type(screen.getByLabelText('Password'), values.password);
     if (values.confirm) await user.type(screen.getByLabelText('Confirm password'), values.confirm);
   }
@@ -130,15 +139,22 @@ describe('sign up', () => {
   it('validates like the backend before submitting', async () => {
     const { user } = await renderApp('/register');
     await screen.findByRole('heading', { name: 'Create your account' });
-    await fill(user, { username: 'no spaces', password: 'short', confirm: 'other' });
+    await fill(user, {
+      username: 'no spaces',
+      email: 'not-an-email',
+      password: 'short',
+      confirm: 'other',
+    });
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(
       screen.getByText('Use only letters, numbers, “_” and “.” (no spaces).'),
     ).toBeInTheDocument();
+    expect(screen.getByText('Enter an email address like name@example.com.')).toBeInTheDocument();
     expect(screen.getByText('Use at least 8 characters.')).toBeInTheDocument();
     expect(screen.getByText('Passwords don’t match.')).toBeInTheDocument();
     expect(screen.getByLabelText('Username')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true');
     expect(mocked.register).not.toHaveBeenCalled();
   });
 
@@ -146,11 +162,17 @@ describe('sign up', () => {
     mocked.register.mockResolvedValue(GAL);
     const { user } = await renderApp('/register');
     await screen.findByRole('heading', { name: 'Create your account' });
-    await fill(user, { username: 'gal', password: 'correct horse', confirm: 'correct horse' });
+    await fill(user, {
+      username: 'gal',
+      email: ' Gal@Example.com ',
+      password: 'correct horse',
+      confirm: 'correct horse',
+    });
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(mocked.register).toHaveBeenCalledWith({
       username: 'gal',
+      email: 'gal@example.com',
       password: 'correct horse',
       display_name: undefined,
     });
@@ -162,11 +184,27 @@ describe('sign up', () => {
     mocked.register.mockRejectedValue(new ApiError(409, 'Username already taken', null));
     const { user } = await renderApp('/register');
     await screen.findByRole('heading', { name: 'Create your account' });
-    await fill(user, { username: 'gal', password: 'correct horse', confirm: 'correct horse' });
+    await fill(user, COMPLETE);
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByText('That username is taken. Try another one.')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('Username')).toHaveFocus());
+  });
+
+  it('puts "email in use" (409) on the email field', async () => {
+    mocked.register.mockRejectedValue(
+      new ApiError(409, 'Email already in use by another account', null),
+    );
+    const { user } = await renderApp('/register');
+    await screen.findByRole('heading', { name: 'Create your account' });
+    await fill(user, COMPLETE);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(
+      await screen.findByText('That email is already used by another account.'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Email')).toHaveFocus());
+    expect(screen.getByLabelText('Username')).not.toHaveAttribute('aria-invalid');
   });
 
   it('maps a server 422 onto the matching field', async () => {
@@ -181,7 +219,7 @@ describe('sign up', () => {
     );
     const { user } = await renderApp('/register');
     await screen.findByRole('heading', { name: 'Create your account' });
-    await fill(user, { username: 'gal', password: 'correct horse', confirm: 'correct horse' });
+    await fill(user, COMPLETE);
     await user.click(screen.getByRole('button', { name: 'Create account' }));
     expect(await screen.findByText('String should have at least 8 characters')).toBeInTheDocument();
   });

@@ -49,7 +49,15 @@ def database_down(client: TestClient, tmp_path: Path) -> Generator[TestClient, N
         ("get", "/tropes", None),
         ("get", "/auth/me", None),
         ("post", "/auth/login", {"username": "reader", "password": "correct horse battery"}),
-        ("post", "/auth/register", {"username": "newbie", "password": "correct horse battery"}),
+        (
+            "post",
+            "/auth/register",
+            {
+                "username": "newbie",
+                "email": "newbie@example.com",
+                "password": "correct horse battery",
+            },
+        ),
         ("get", "/users?q=a", None),
         ("get", "/follow-requests", None),
     ],

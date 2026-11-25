@@ -1,21 +1,46 @@
 /** Client-side checks for the login and sign-up forms, mirroring the backend. */
 import {
   DISPLAY_NAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  EMAIL_PATTERN,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   USERNAME_PATTERN,
+  normalizeEmail,
   normalizeUsername,
 } from '../types';
 
+export function validateEmail(raw: string): string | undefined {
+  const email = normalizeEmail(raw);
+  if (!email) return 'Enter your email address.';
+  if (email.length > EMAIL_MAX_LENGTH) return `At most ${EMAIL_MAX_LENGTH} characters.`;
+  return EMAIL_PATTERN.test(email) ? undefined : 'Enter an email address like name@example.com.';
+}
+
+export function validateNewPassword(password: string): string | undefined {
+  if (password.length < PASSWORD_MIN_LENGTH)
+    return `Use at least ${PASSWORD_MIN_LENGTH} characters.`;
+  return password.length > PASSWORD_MAX_LENGTH
+    ? `At most ${PASSWORD_MAX_LENGTH} characters.`
+    : undefined;
+}
+
 export interface RegisterValues {
   username: string;
+  email: string;
   display_name: string;
   password: string;
   confirm: string;
 }
 
 export type RegisterField = keyof RegisterValues;
-export const REGISTER_FIELDS: RegisterField[] = ['username', 'display_name', 'password', 'confirm'];
+export const REGISTER_FIELDS: RegisterField[] = [
+  'username',
+  'email',
+  'display_name',
+  'password',
+  'confirm',
+];
 
 export function validateRegisterField(
   field: RegisterField,
@@ -30,17 +55,14 @@ export function validateRegisterField(
         ? undefined
         : 'Use only letters, numbers, “_” and “.” (no spaces).';
     }
+    case 'email':
+      return validateEmail(values.email);
     case 'display_name':
       return values.display_name.trim().length > DISPLAY_NAME_MAX_LENGTH
         ? `At most ${DISPLAY_NAME_MAX_LENGTH} characters.`
         : undefined;
     case 'password':
-      if (values.password.length < PASSWORD_MIN_LENGTH) {
-        return `Use at least ${PASSWORD_MIN_LENGTH} characters.`;
-      }
-      return values.password.length > PASSWORD_MAX_LENGTH
-        ? `At most ${PASSWORD_MAX_LENGTH} characters.`
-        : undefined;
+      return validateNewPassword(values.password);
     case 'confirm':
       return values.confirm === values.password ? undefined : 'Passwords don’t match.';
   }

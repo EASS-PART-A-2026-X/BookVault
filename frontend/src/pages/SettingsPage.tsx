@@ -1,11 +1,25 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { ValidationError, updateProfile } from '../api/books';
+import {
+  ApiError,
+  ValidationError,
+  changeEmail,
+  changePassword,
+  updateProfile,
+} from '../api/books';
 import { useAuth } from '../auth/context';
 import { TextField } from '../components/TextField';
+import { validateEmail, validateNewPassword } from '../lib/authValidation';
 import { describeError, mapIssuesToFields } from '../lib/errors';
 import { useToast } from '../toast/context';
-import { BIO_MAX_LENGTH, DISPLAY_NAME_MAX_LENGTH } from '../types';
+import {
+  BIO_MAX_LENGTH,
+  DISPLAY_NAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  normalizeEmail,
+  type User,
+} from '../types';
 
 type Field = 'display_name' | 'bio' | 'is_public';
 const FIELDS: Field[] = ['display_name', 'bio', 'is_public'];
@@ -166,6 +180,229 @@ export function SettingsPage() {
           </fieldset>
         </form>
       </div>
+
+      <EmailSection user={user} onSaved={setUser} />
+      <PasswordSection />
     </section>
+  );
+}
+
+/** Server answers shared by both account forms: 400 = wrong current password. */
+function describeAccountError(error: unknown): string {
+  const { title, message } = describeError(error);
+  return `${title}. ${message}`;
+}
+
+/** The private email that reset links go to. Needs the current password to change. */
+function EmailSection({ user, onSaved }: { user: User; onSaved: (user: User) => void }) {
+  const toast = useToast();
+  const [email, setEmail] = useState(user.email ?? '');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<{ email?: string; current_password?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const dirty = normalizeEmail(email) !== (user.email ?? '');
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (saving) return;
+    const clientErrors: typeof errors = {};
+    const emailError = validateEmail(email);
+    if (emailError) clientErrors.email = emailError;
+    if (!password) clientErrors.current_password = 'Enter your current password.';
+    setErrors(clientErrors);
+    setFormError(null);
+    if (Object.keys(clientErrors).length) return;
+
+    setSaving(true);
+    try {
+      const updated = await changeEmail(normalizeEmail(email), password);
+      onSaved(updated);
+      setEmail(updated.email ?? '');
+      setPassword('');
+      toast.success('Email saved. Reset links will go there.');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 400) {
+        setErrors({ current_password: 'That’s not your current password.' });
+      } else if (error instanceof ApiError && error.status === 409) {
+        setErrors({ email: 'That email is already used by another account.' });
+      } else if (error instanceof ValidationError) {
+        const mapped = mapIssuesToFields(error.issues, ['email', 'current_password'] as const);
+        setErrors(mapped.fieldErrors);
+        if (mapped.formErrors.length) setFormError(mapped.formErrors.join(' '));
+      } else {
+        setFormError(describeAccountError(error));
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card" aria-labelledby="email-heading" role="region">
+      <h2 id="email-heading" className="settings-heading">
+        Email
+      </h2>
+      {!user.email && (
+        <div className="alert alert--warning" role="status">
+          Your account has no email yet, so you can’t reset a forgotten password. Add one below.
+        </div>
+      )}
+      <form
+        className="book-form"
+        onSubmit={handleSubmit}
+        noValidate
+        aria-busy={saving || undefined}
+      >
+        {formError && (
+          <div className="alert alert--error" role="alert">
+            {formError}
+          </div>
+        )}
+        <fieldset className="book-form__fields" disabled={saving}>
+          <TextField
+            id="account_email"
+            label="Email"
+            type="email"
+            value={email}
+            onChange={setEmail}
+            error={errors.email}
+            hint="Private: only used to send you a password reset link."
+            autoComplete="email"
+            maxLength={EMAIL_MAX_LENGTH}
+          />
+          <TextField
+            id="email_current_password"
+            label="Current password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            error={errors.current_password}
+            autoComplete="current-password"
+          />
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn btn--primary"
+              disabled={!dirty}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {saving ? 'Saving…' : 'Save email'}
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    </div>
+  );
+}
+
+type PasswordField = 'current_password' | 'new_password' | 'confirm';
+
+/** Change the password. Logs out other devices; this one stays logged in. */
+function PasswordSection() {
+  const toast = useToast();
+  const empty = { current_password: '', new_password: '', confirm: '' };
+  const [values, setValues] = useState<Record<PasswordField, string>>(empty);
+  const [errors, setErrors] = useState<Partial<Record<PasswordField, string>>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  function set(field: PasswordField, value: string) {
+    setValues((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    if (saving) return;
+    const clientErrors: Partial<Record<PasswordField, string>> = {};
+    if (!values.current_password) clientErrors.current_password = 'Enter your current password.';
+    const newError = validateNewPassword(values.new_password);
+    if (newError) clientErrors.new_password = newError;
+    if (values.confirm !== values.new_password) clientErrors.confirm = 'Passwords don’t match.';
+    setErrors(clientErrors);
+    setFormError(null);
+    if (Object.keys(clientErrors).length) return;
+
+    setSaving(true);
+    try {
+      await changePassword(values.current_password, values.new_password);
+      setValues(empty);
+      toast.success('Password changed. Your other devices were logged out.');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 400) {
+        setErrors({ current_password: 'That’s not your current password.' });
+      } else if (error instanceof ValidationError) {
+        const mapped = mapIssuesToFields(error.issues, [
+          'current_password',
+          'new_password',
+        ] as const);
+        setErrors(mapped.fieldErrors);
+        if (mapped.formErrors.length) setFormError(mapped.formErrors.join(' '));
+      } else {
+        setFormError(describeAccountError(error));
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card" aria-labelledby="password-heading" role="region">
+      <h2 id="password-heading" className="settings-heading">
+        Password
+      </h2>
+      <form
+        className="book-form"
+        onSubmit={handleSubmit}
+        noValidate
+        aria-busy={saving || undefined}
+      >
+        {formError && (
+          <div className="alert alert--error" role="alert">
+            {formError}
+          </div>
+        )}
+        <fieldset className="book-form__fields" disabled={saving}>
+          <TextField
+            id="current_password"
+            label="Current password"
+            type="password"
+            value={values.current_password}
+            onChange={(v) => set('current_password', v)}
+            error={errors.current_password}
+            autoComplete="current-password"
+          />
+          <TextField
+            id="new_password"
+            label="New password"
+            type="password"
+            value={values.new_password}
+            onChange={(v) => set('new_password', v)}
+            error={errors.new_password}
+            hint={`At least ${PASSWORD_MIN_LENGTH} characters. Your other devices will be logged out.`}
+            autoComplete="new-password"
+          />
+          <TextField
+            id="confirm_password"
+            label="Confirm new password"
+            type="password"
+            value={values.confirm}
+            onChange={(v) => set('confirm', v)}
+            error={errors.confirm}
+            autoComplete="new-password"
+          />
+          <div className="form-actions">
+            <button
+              type="submit"
+              className="btn btn--primary"
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {saving ? 'Saving…' : 'Change password'}
+            </button>
+          </div>
+        </fieldset>
+      </form>
+    </div>
   );
 }

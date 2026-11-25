@@ -48,6 +48,10 @@ key.
 | `DEMO_PASSWORD` | random | seed | Password for `demo`, `mira` and `theo`, 8–128 characters. If empty, a random one is printed once in `docker compose logs seed`. |
 | `SEED_DEMO_DATA` | `true` | seed | `false` = start with an empty vault |
 | `FRONTEND_PORT` | `8080` | frontend | Host port |
+| `EMAIL_BACKEND` | `console` | backend | How password reset emails go out. `console` writes them to `docker compose logs backend` (your machine only). `smtp` sends real email. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_STARTTLS`, `SMTP_FROM` | `587`, STARTTLS on | backend | Your email provider's SMTP settings, for `EMAIL_BACKEND=smtp` |
+| `APP_BASE_URL` | `http://localhost:${FRONTEND_PORT}` | backend | Where reset links point. The live-demo override sets `https://${SITE_ADDRESS}`. |
+| `PASSWORD_RESET_MINUTES` | `30` | backend | How long a reset link works |
 
 An invalid number (e.g. `AI_TIMEOUT_SECONDS=soon`) stops that service at startup with a log
 line naming the variable. A missing model or key doesn't: the AI service starts, reports
@@ -76,7 +80,7 @@ The AI service health shows what's wrong without calling the model:
 - `"backend": "unreachable"`: the AI service can't reach the backend.
 
 **Full check:** `scripts/smoke-test.sh` builds a separate throwaway stack (project `bvsmoke`,
-port 8092) and runs 26 checks: health, seed, AI search, failure drills and persistence.
+port 8092) and runs 33 checks: health, seed, AI search, failure drills, password reset and persistence.
 It then deletes that stack. It never touches your data. Exit code 0 means everything
 passed.
 
@@ -137,7 +141,9 @@ drives too.
 | AI search: 502 `The AI provider failed to answer…` | `docker compose logs ai-service`; the provider console | Usually a wrong or expired key, no credit, or a rate limit. Fix it in the provider console or rotate the key. To keep the demo going meanwhile: `AI_MODEL=fake`. |
 | AI search: 504 `The AI took too long to answer…` | Provider status page; `AI_TIMEOUT_SECONDS` | Retry. If it keeps happening, raise `AI_TIMEOUT_SECONDS` (nginx allows up to 60 s). |
 | AI search: 502 `The AI couldn't turn that into a search…` | `docker compose logs ai-service` | The model's answer stayed invalid after 2 retries. Rephrase, or use the filters. If it happens often, run the eval (below). |
-| Nobody knows the demo password | `docker compose logs seed` (shown only if it was generated) | There's no password reset. Set `DEMO_PASSWORD` and reseed with `down -v`, which deletes all data. |
+| A reader forgot their password | Does the account have an email? (Settings shows a warning when it doesn't.) | **Forgot your password?** on the login page emails a link. With `EMAIL_BACKEND=console`, the link is in `docker compose logs backend`. |
+| Reset emails don't arrive | `docker compose logs backend \| grep -i email`; a send failure logs `could not send email to …: <ErrorType>` | Check the `SMTP_*` settings and the provider's dashboard (sender verified? quota?). The reader sees the same answer either way, so nothing tells them it failed. At most 3 emails per account per hour. |
+| Nobody knows the demo password | `docker compose logs seed` (shown only if it was generated) | The seeded readers have no email, so they can't use reset. Log in another way and add an email in Settings, or set `DEMO_PASSWORD` and reseed with `down -v`, which deletes all data. |
 
 After any fix, run the health checks above. After changing code or Compose files, also run
 `scripts/smoke-test.sh`.

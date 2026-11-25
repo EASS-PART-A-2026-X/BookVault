@@ -25,6 +25,9 @@ class User(Base):
     # Private by default: others must request to follow before seeing books.
     is_public: Mapped[bool] = mapped_column(default=False)
     password_hash: Mapped[str] = mapped_column(String(255))
+    # Private; only for password reset links. Stored lower case. NULL for accounts made
+    # before emails existed (SQLite's unique index allows any number of NULLs).
+    email: Mapped[str | None] = mapped_column(String(254), unique=True, index=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
@@ -38,6 +41,21 @@ class AuthSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    expires_at: Mapped[datetime]
+
+    user: Mapped[User] = relationship(lazy="joined")
+
+
+class PasswordReset(Base):
+    """A password reset link. Like sessions, only a SHA-256 hash of the token is stored.
+    Single use: all of a user's reset rows are deleted once one is used."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    created_at: Mapped[datetime]
     expires_at: Mapped[datetime]
 
     user: Mapped[User] = relationship(lazy="joined")

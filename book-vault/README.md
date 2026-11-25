@@ -54,6 +54,10 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 | `POST`   | `/auth/login`      | Log in (sets the session cookie)  | `200`   | `401`      |
 | `POST`   | `/auth/logout`     | Log out (ends the session)        | `204`   |            |
 | `GET`    | `/auth/me`         | The logged-in account             | `200`   | `401`      |
+| `POST`   | `/auth/password`   | Change password (needs the current one; logs out other devices) | `204` | `400`, `401`, `422` |
+| `PUT`    | `/auth/email`      | Set / change the private email (needs the password) | `200` | `400`, `401`, `409`, `422` |
+| `POST`   | `/auth/password-reset` | Email a reset link (same answer whether or not the email has an account) | `202` | `422` |
+| `POST`   | `/auth/password-reset/confirm` | Set a new password with the emailed token (single use; logs out everywhere) | `204` | `400`, `422` |
 | `PATCH`  | `/users/me`        | Change display name, bio, public/private (going public accepts pending requests) | `200` | `401`, `422` |
 | `GET`    | `/users?q=`        | Search people by username or display name | `200` | `422` |
 | `GET`    | `/users/{username}` | Profile: name, bio, counts, your follow status | `200` | `404` |
@@ -70,7 +74,8 @@ with **uv**, tested with **pytest**, and shipped as a **Docker** image.
 Your books and reviews are visible to you, to everyone if your profile is public, and
 otherwise only to followers whose request you accepted. Profiles start private.
 
-Every endpoint except `/health` and `/auth/register|login|logout` needs a logged-in user; `/books` and `/tropes` (otherwise `401
+Every endpoint except `/health`, `/auth/register|login|logout` and the two
+`/auth/password-reset` endpoints needs a logged-in user; `/books` and `/tropes` (otherwise `401
 {"detail": "Not authenticated"}`) and only ever sees that user's books. Another user's
 book id answers `404`, exactly like a missing one. `/health` stays public.
 
@@ -82,11 +87,18 @@ session cookie in `cookies.txt` (`-c` saves it, `-b` sends it):
 ```bash
 curl -c cookies.txt -X POST http://localhost:8000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username": "gal", "password": "correct horse battery"}'
+  -d '{"username": "gal", "email": "gal@example.com", "password": "correct horse battery"}'
 ```
 
 Add `-b cookies.txt` to every call below so curl sends the cookie (left out for
 brevity).
+
+**Password reset.** The email given at sign-up is private (only returned by `/auth/me`) and
+only used for reset links. `POST /auth/password-reset {"email": ...}` always answers `202`
+with the same message; if the email has an account, a link to
+`APP_BASE_URL/reset-password?token=...` is sent (at most 3 per account per hour). The token
+works once, for `PASSWORD_RESET_MINUTES` (30), and only its SHA-256 hash is stored. How mail
+goes out is set by `EMAIL_BACKEND` (`console`, `file` or `smtp`, see `app/mailer.py`).
 
 Usernames are 3–30 characters of `a-z 0-9 _ .` (stored lower case); passwords 8–128
 characters. The first account created also takes over any books that existed before
