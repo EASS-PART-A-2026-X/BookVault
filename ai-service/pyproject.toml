@@ -31,6 +31,7 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
 [dependency-groups]
 dev = [
     "httpx2>=2.16",
+    "pydantic-evals>=2.74.0",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.6",

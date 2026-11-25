@@ -59,8 +59,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: ai-service/uv.lock
       - run: uv sync --frozen
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - run: uv run ruff check . ../eval
+      - run: uv run ruff format --check . ../eval
       # No API key anywhere: make sure a real provider can't be reached by accident.
       - run: uv run pytest -v --cov=app --cov-report=term-missing
         env:
