@@ -2,6 +2,8 @@
 
 How to run, check, back up and fix the Docker Compose stack. Every command runs from the
 repository root. For development and tests, see [README.md](README.md).
+On the live-demo server, `.env` sets `COMPOSE_FILE` to add HTTPS, so the same commands
+work there unchanged; see [docs/deploy.md](docs/deploy.md).
 
 ## What runs
 

@@ -1,0 +1,20 @@
+# Public entry point for the live demo (docker-compose.prod.yml).
+#
+# SITE_ADDRESS is the public host name, e.g. bookvault.example.com or
+# 203-0-113-7.sslip.io. For a real host name Caddy gets and renews a Let's Encrypt
+# certificate by itself and redirects HTTP to HTTPS. "localhost" uses Caddy's own local
+# CA instead (for trying this file on a laptop).
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	# Everything goes to the app's own nginx, which serves the SPA and routes /api.
+	reverse_proxy frontend:80
+}
